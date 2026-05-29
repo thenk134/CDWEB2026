@@ -1,11 +1,12 @@
 package com.news2026.controller;
 
-import com.news2026.util.SimpleCache;
+import com.news2026.entity.Article;
+import com.news2026.repository.ArticleRepository;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
-import org.jsoup.parser.Parser;
 import org.jsoup.select.Elements;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,65 +17,22 @@ import java.util.*;
 @RequestMapping("/api")
 public class NewsController {
 
-    private final SimpleCache<String, List<Map<String, Object>>> homeCache = new SimpleCache<>(300);
-    private final SimpleCache<String, List<Map<String, Object>>> categoryCache = new SimpleCache<>(300);
-    private final SimpleCache<String, Map<String, String>> detailCache = new SimpleCache<>(300);
+    @Autowired
+    private ArticleRepository articleRepository;
 
     @GetMapping("/news/home-laodong")
     public ResponseEntity<?> getHomeNews() {
-        String cacheKey = "home_news";
-        List<Map<String, Object>> cached = homeCache.get(cacheKey);
-        if (cached != null) {
-            System.out.println("Lấy từ cache (Home)");
-            return ResponseEntity.ok(cached);
-        }
-
         try {
-            String rssUrl = "https://tuoitre.vn/rss/tin-moi-nhat.rss";
-            Document doc = Jsoup.connect(rssUrl)
-                    .parser(Parser.xmlParser())
-                    .userAgent("Mozilla/5.0")
-                    .timeout(10000)
-                    .get();
-
-            List<Map<String, Object>> articles = new ArrayList<>();
-            Elements items = doc.select("item");
-
-            for (Element item : items) {
-                String title = item.select("title").text();
-                String link = item.select("link").text();
-                String pubDate = item.select("pubDate").text();
-                String guid = item.select("guid").text();
-                if (guid.isEmpty()) {
-                    guid = link;
+            // Lấy các bài báo thuộc danh mục trang chủ "tin-moi-nhat"
+            List<Article> articles = articleRepository.findByCategoryOrderByPubDateDesc("tin-moi-nhat");
+            if (articles.isEmpty()) {
+                // Nếu rỗng, lấy tạm 20 bài báo mới nhất trong hệ thống
+                articles = articleRepository.findAllByOrderByIdDesc();
+                if (articles.size() > 20) {
+                    articles = articles.subList(0, 20);
                 }
-
-                String descHtml = item.select("description").text();
-                Document descDoc = Jsoup.parse(descHtml);
-                String description = descDoc.text();
-                if (description.isEmpty()) {
-                    description = "Nhấp để xem chi tiết...";
-                }
-
-                String image = descDoc.select("img").attr("src");
-                if (image.isEmpty()) {
-                    image = "https://via.placeholder.com/400x250";
-                }
-
-                Map<String, Object> article = new HashMap<>();
-                article.put("id", guid);
-                article.put("title", title);
-                article.put("description", description);
-                article.put("link", link);
-                article.put("date", pubDate);
-                article.put("image", image);
-
-                articles.add(article);
             }
-
-            homeCache.put(cacheKey, articles);
             return ResponseEntity.ok(articles);
-
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -84,71 +42,31 @@ public class NewsController {
 
     @GetMapping("/news/{source}/{category}")
     public ResponseEntity<?> getCategoryNews(@PathVariable String source, @PathVariable String category) {
-        String cacheKey = String.format("category_%s_%s", source, category);
-        List<Map<String, Object>> cached = categoryCache.get(cacheKey);
-        if (cached != null) {
-            System.out.println(String.format("[Category: %s] Lấy từ cache", category));
-            return ResponseEntity.ok(cached);
-        }
-
         try {
-            String rssUrl;
-            if ("tuoitre".equals(source)) {
-                rssUrl = "https://tuoitre.vn/rss/" + category + ".rss";
-            } else if ("nld".equals(source)) {
-                rssUrl = "https://nld.com.vn/" + category + ".rss";
-            } else {
-                rssUrl = "https://vnexpress.net/rss/" + category + ".rss";
+            List<Article> articles = articleRepository.findByCategoryAndSourceOrderByPubDateDesc(category, source);
+            if (articles.isEmpty()) {
+                // Nếu không tìm thấy theo nguồn, thử tìm tất cả các nguồn của danh mục đó
+                articles = articleRepository.findByCategoryOrderByPubDateDesc(category);
             }
-
-            System.out.println("🔥 Đang lấy tin từ: " + rssUrl);
-
-            Document doc = Jsoup.connect(rssUrl)
-                    .parser(Parser.xmlParser())
-                    .userAgent("Mozilla/5.0")
-                    .timeout(10000)
-                    .get();
-
-            List<Map<String, Object>> articles = new ArrayList<>();
-            Elements items = doc.select("item");
-
-            for (Element item : items) {
-                String title = item.select("title").text();
-                String link = item.select("link").text();
-                String pubDate = item.select("pubDate").text();
-
-                String descHtml = item.select("description").text();
-                Document descDoc = Jsoup.parse(descHtml);
-                String description = descDoc.text();
-
-                String image = "";
-                Element enclosure = item.selectFirst("enclosure");
-                if (enclosure != null) {
-                    image = enclosure.attr("url");
-                }
-                if (image.isEmpty()) {
-                    image = descDoc.select("img").attr("src");
-                }
-                if (image.isEmpty()) {
-                    image = "https://via.placeholder.com/400x250";
-                }
-
-                Map<String, Object> article = new HashMap<>();
-                article.put("title", title);
-                article.put("link", link);
-                article.put("date", pubDate);
-                article.put("image", image);
-                article.put("description", description);
-
-                articles.add(article);
-            }
-
-            categoryCache.put(cacheKey, articles);
             return ResponseEntity.ok(articles);
-
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.ok(Collections.emptyList());
+        }
+    }
+
+    @GetMapping("/news/search")
+    public ResponseEntity<?> searchNews(@RequestParam String query) {
+        try {
+            if (query == null || query.trim().isEmpty()) {
+                return ResponseEntity.ok(Collections.emptyList());
+            }
+            List<Article> articles = articleRepository.findByTitleContainingIgnoreCaseOrDescriptionContainingIgnoreCaseOrderByPubDateDesc(query, query);
+            return ResponseEntity.ok(articles);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Lỗi tìm kiếm: " + e.getMessage()));
         }
     }
 
@@ -158,12 +76,26 @@ public class NewsController {
             return ResponseEntity.badRequest().body(Map.of("error", "Thiếu URL"));
         }
 
-        String cacheKey = "detail_" + url;
-        Map<String, String> cached = detailCache.get(cacheKey);
-        if (cached != null) {
-            return ResponseEntity.ok(cached);
+        // 1. Kiểm tra xem bài viết đã lưu trong database chưa
+        Optional<Article> articleOpt = articleRepository.findByLink(url);
+        if (articleOpt.isPresent()) {
+            Article article = articleOpt.get();
+            // Nếu là bài viết nội bộ hoặc bài viết RSS đã được cào nội dung trước đó
+            if (article.getContent() != null && !article.getContent().trim().isEmpty()) {
+                return ResponseEntity.ok(Map.of(
+                        "id", article.getId(),
+                        "title", article.getTitle(),
+                        "description", article.getDescription() != null ? article.getDescription() : "",
+                        "content", article.getContent(),
+                        "image", article.getImage() != null ? article.getImage() : "",
+                        "link", article.getLink(),
+                        "date", article.getPubDate() != null ? article.getPubDate() : "",
+                        "source", article.getSource() != null ? article.getSource() : ""
+                ));
+            }
         }
 
+        // 2. Nếu chưa có hoặc content rỗng (do RSS ban đầu chỉ có mô tả), thực hiện cào nội dung
         try {
             Document pageDoc = Jsoup.connect(url)
                     .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
@@ -229,19 +161,45 @@ public class NewsController {
                 }
             }
 
-            Map<String, String> result = new HashMap<>();
-            result.put("title", title);
-            result.put("description", description);
-            result.put("content", contentBuilder.toString());
+            String content = contentBuilder.toString();
+            if (content.isEmpty()) {
+                content = description.isEmpty() ? "Không thể tải được nội dung bài viết." : description;
+            }
 
-            detailCache.put(cacheKey, result);
-            return ResponseEntity.ok(result);
+            // 3. Lưu nội dung vừa cào lại vào database để tăng tốc cho lần đọc sau
+            Article article;
+            if (articleOpt.isPresent()) {
+                article = articleOpt.get();
+            } else {
+                article = new Article();
+                article.setTitle(title.isEmpty() ? "Tin tức" : title);
+                article.setDescription(description);
+                article.setLink(url);
+                article.setImage("https://via.placeholder.com/400x250");
+                article.setPubDate(new Date().toString());
+                article.setLocal(false);
+                article.setCategory("tin-moi-nhat");
+                article.setSource(url.contains("tuoitre.vn") ? "tuoitre" : "nld");
+            }
+            article.setContent(content);
+            articleRepository.save(article);
+
+            return ResponseEntity.ok(Map.of(
+                    "id", article.getId(),
+                    "title", article.getTitle(),
+                    "description", article.getDescription() != null ? article.getDescription() : "",
+                    "content", content,
+                    "image", article.getImage() != null ? article.getImage() : "",
+                    "link", url,
+                    "date", article.getPubDate() != null ? article.getPubDate() : "",
+                    "source", article.getSource() != null ? article.getSource() : ""
+            ));
 
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.ok(Map.of(
-                    "title", "Lỗi tải bài viết",
-                    "description", "",
+                    "title", articleOpt.map(Article::getTitle).orElse("Lỗi tải bài viết"),
+                    "description", articleOpt.map(Article::getDescription).orElse(""),
                     "content", "Không thể lấy nội dung từ nguồn này: " + e.getMessage()
             ));
         }

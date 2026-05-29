@@ -4,6 +4,11 @@ import Category from '../pages/Category.vue'
 import NewsDetail from '../pages/NewsDetail.vue'
 import Search from '../pages/Search.vue'
 import Bookmarks from '../pages/Bookmarks.vue'
+import Login from '../pages/Login.vue'
+import Register from '../pages/Register.vue'
+import ForgotPassword from '../pages/ForgotPassword.vue'
+import AdminDashboard from '../pages/AdminDashboard.vue'
+import AdminEditNews from '../pages/AdminEditNews.vue'
 
 const routes = [
   {
@@ -30,12 +35,60 @@ const routes = [
     path: '/bookmarks',
     name: 'Bookmarks',
     component: Bookmarks
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: Login
+  },
+  {
+    path: '/register',
+    name: 'Register',
+    component: Register
+  },
+  {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: ForgotPassword
+  },
+  {
+    path: '/admin',
+    name: 'AdminDashboard',
+    component: AdminDashboard,
+    meta: { requiresAdmin: true }
+  },
+  {
+    path: '/admin/create',
+    name: 'AdminCreateNews',
+    component: AdminEditNews,
+    meta: { requiresAdmin: true }
+  },
+  {
+    path: '/admin/edit/:id',
+    name: 'AdminEditNews',
+    component: AdminEditNews,
+    meta: { requiresAdmin: true }
   }
 ]
 
 const router = createRouter({
   history: createWebHistory(),
   routes
+})
+
+// Route guard kiểm tra quyền ADMIN
+router.beforeEach((to, from, next) => {
+  if (to.matched.some(record => record.meta.requiresAdmin)) {
+    const role = localStorage.getItem('user_role')
+    if (role !== 'ADMIN') {
+      alert('Bạn không có quyền truy cập trang quản trị này!')
+      next('/login')
+    } else {
+      next()
+    }
+  } else {
+    next()
+  }
 })
 
 export default router

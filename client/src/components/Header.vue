@@ -27,21 +27,107 @@
         <div v-else class="hidden lg:block w-20 h-8 bg-gray-100 animate-pulse rounded-full"></div>
       </div>
 
-      <!-- Form tìm kiếm -->
-      <form 
-        @submit.prevent="handleSearch" 
-        class="hidden sm:flex items-center bg-gray-100 border border-gray-200 rounded-full px-4 py-1.5 w-72"
-      >
-        <input 
-          type="text" 
-          placeholder="Tìm kiếm tin tức..." 
-          class="bg-transparent focus:outline-none text-sm w-full"
-          v-model="keyword"
-        />
-        <button type="submit" class="text-gray-400 hover:text-red-700">
-          👌
-        </button>
-      </form>
+      <!-- Phải: Form tìm kiếm + Auth status -->
+      <div class="flex items-center space-x-4">
+        
+        <!-- Form tìm kiếm chứa trong container relative phục vụ Live Search -->
+        <div class="relative hidden sm:block">
+          <form 
+            @submit.prevent="handleSearch" 
+            class="flex items-center bg-gray-100 border border-gray-200 rounded-full px-4 py-1.5 w-64"
+          >
+            <input 
+              type="text" 
+              placeholder="Tìm kiếm tin tức..." 
+              class="bg-transparent focus:outline-none text-sm w-full"
+              v-model="keyword"
+              @input="onSearchInput"
+              @focus="showSuggestions = true"
+              @blur="onBlur"
+            />
+            <button type="submit" class="text-gray-400 hover:text-red-700">
+              🔎
+            </button>
+          </form>
+
+          <!-- Dropdown Gợi ý tìm kiếm trực tiếp bằng AJAX -->
+          <div 
+            v-if="showSuggestions && suggestions.length > 0" 
+            class="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 max-h-80 overflow-y-auto w-72"
+          >
+            <div class="p-2.5 text-[10px] font-bold text-gray-400 border-b uppercase tracking-wider">Tin tức gợi ý</div>
+            <ul>
+              <li 
+                v-for="item in suggestions" 
+                :key="item.id"
+                class="border-b last:border-b-0 border-gray-100"
+              >
+                <router-link 
+                  :to="{
+                    path: '/news-detail',
+                    query: {
+                      url: item.link,
+                      date: item.pubDate
+                    }
+                  }"
+                  class="flex items-center p-2.5 hover:bg-red-50/50 transition gap-3"
+                  @click="selectSuggestion"
+                >
+                  <img :src="item.image" class="w-10 h-10 object-cover rounded shadow-sm flex-shrink-0" />
+                  <div class="text-left min-w-0">
+                    <p class="text-xs font-bold text-gray-800 truncate hover:text-red-700">{{ item.title }}</p>
+                    <p class="text-[10px] text-gray-400 mt-0.5 capitalize">{{ item.category }} • {{ item.source }}</p>
+                  </div>
+                </router-link>
+              </li>
+            </ul>
+          </div>
+          
+          <!-- Trạng thái đang tải gợi ý -->
+          <div 
+            v-else-if="showSuggestions && keyword.trim().length >= 2 && loadingSuggestions"
+            class="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-xl z-50 p-4 text-center text-xs text-gray-400 w-72"
+          >
+            Đang tìm kiếm nhanh...
+          </div>
+        </div>
+
+        <!-- Auth Section -->
+        <div class="flex items-center space-x-2 text-sm font-semibold">
+          <template v-if="isLoggedIn">
+            <span class="text-gray-700 hidden md:inline">
+              Chào, <span class="text-red-700 font-bold">{{ username }}</span>
+            </span>
+            <router-link 
+              v-if="isAdmin" 
+              to="/admin" 
+              class="bg-amber-500 text-white px-3 py-1.5 rounded-full hover:bg-amber-600 transition text-xs shadow-sm"
+            >
+              ⚙️ Quản lý
+            </router-link>
+            <button 
+              @click="handleLogout" 
+              class="bg-gray-100 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-full hover:bg-gray-200 transition text-xs"
+            >
+              Đăng xuất
+            </button>
+          </template>
+          <template v-else>
+            <router-link 
+              to="/login" 
+              class="text-red-700 hover:text-red-800 px-3 py-1.5 transition text-xs md:text-sm"
+            >
+              Đăng nhập
+            </router-link>
+            <router-link 
+              to="/register" 
+              class="bg-red-700 text-white px-4 py-1.5 rounded-full hover:bg-red-800 transition text-xs md:text-sm shadow-sm"
+            >
+              Đăng ký
+            </router-link>
+          </template>
+        </div>
+      </div>
     </div>
 
     <!-- Navigation Menu -->
@@ -63,17 +149,78 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted, watch } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 
 const keyword = ref("")
 const weather = ref(null)
 const router = useRouter()
+const route = useRoute()
+
+const isLoggedIn = ref(false)
+const username = ref("")
+const isAdmin = ref(false)
+
+const showSuggestions = ref(false)
+const suggestions = ref([])
+const loadingSuggestions = ref(false)
+let debounceTimeout = null
+
+const checkAuth = () => {
+  const token = localStorage.getItem("token")
+  isLoggedIn.value = !!token
+  username.value = localStorage.getItem("username") || ""
+  isAdmin.value = localStorage.getItem("user_role") === "ADMIN"
+}
+
+// Cập nhật trạng thái đăng nhập khi đổi route
+watch(() => route.path, () => {
+  checkAuth()
+})
+
+const onSearchInput = () => {
+  if (debounceTimeout) clearTimeout(debounceTimeout)
+  
+  if (keyword.value.trim().length < 2) {
+    suggestions.value = []
+    return
+  }
+
+  loadingSuggestions.value = true
+  debounceTimeout = setTimeout(() => {
+    fetch(`http://localhost:5000/api/news/search?query=${encodeURIComponent(keyword.value.trim())}`)
+      .then(res => res.json())
+      .then(data => {
+        // Lấy tối đa 5 bài báo làm gợi ý
+        suggestions.value = Array.isArray(data) ? data.slice(0, 5) : []
+      })
+      .catch(err => {
+        console.error("Lỗi gợi ý tìm kiếm:", err)
+        suggestions.value = []
+      })
+      .finally(() => {
+        loadingSuggestions.value = false
+      })
+  }, 300)
+}
+
+const onBlur = () => {
+  // Trì hoãn đóng dropdown một chút để kịp kích hoạt sự kiện click của router-link
+  setTimeout(() => {
+    showSuggestions.value = false
+  }, 200)
+}
+
+const selectSuggestion = () => {
+  showSuggestions.value = false
+  keyword.value = ""
+}
 
 const apiKey = "127d989b114b9d3db5aef385245818b9"
 const city = "Ho Chi Minh"
 
 onMounted(() => {
+  checkAuth()
   fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${apiKey}&lang=vi`)
     .then(res => res.json())
     .then(data => {
@@ -91,6 +238,23 @@ onMounted(() => {
 const handleSearch = () => {
   if (keyword.value.trim()) {
     router.push({ path: '/search', query: { q: keyword.value.trim() } })
+    showSuggestions.value = false
   }
+}
+
+const handleLogout = () => {
+  const token = localStorage.getItem("token")
+  fetch("http://localhost:5000/api/auth/logout", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`
+    }
+  }).finally(() => {
+    localStorage.removeItem("token")
+    localStorage.removeItem("username")
+    localStorage.removeItem("user_role")
+    checkAuth()
+    router.push("/")
+  })
 }
 </script>
