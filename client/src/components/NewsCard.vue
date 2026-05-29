@@ -41,6 +41,7 @@
 
 <script setup>
 import { ref, onMounted, watch } from 'vue'
+import { toast } from '../utils/toast'
 
 const props = defineProps({
   news: {
@@ -88,7 +89,7 @@ watch(() => props.news.link, () => {
 const handleBookmark = () => {
   const token = localStorage.getItem("token")
   if (!token) {
-    alert("Vui lòng đăng nhập để lưu tin tức vào tài khoản!")
+    toast.info("Vui lòng đăng nhập để lưu tin tức vào tài khoản!")
     return
   }
 
@@ -104,7 +105,7 @@ const handleBookmark = () => {
       .then(() => {
         isSaved.value = false
         dbArticleId.value = null
-        alert("Đã xóa khỏi danh sách lưu tin!")
+        toast.success("Đã xóa khỏi danh sách lưu tin!")
       })
       .catch(err => console.error("Lỗi xoá bookmark card:", err))
   } else {
@@ -121,7 +122,7 @@ const handleBookmark = () => {
       .then(res => res.json())
       .then(() => {
         isSaved.value = true
-        alert("Lưu bài viết thành công!")
+        toast.success("Lưu bài viết thành công!")
         checkSavedStatus()
       })
       .catch(err => console.error("Lỗi lưu bookmark card:", err))

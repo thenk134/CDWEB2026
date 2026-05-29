@@ -65,6 +65,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { toast } from '../utils/toast'
 
 const route = useRoute()
 const router = useRouter()
@@ -117,14 +118,14 @@ const checkBookmarkStatus = (url) => {
 const toggleBookmark = () => {
   const token = localStorage.getItem("token")
   if (!token) {
-    alert("Vui lòng đăng nhập để sử dụng tính năng lưu tin tức!")
+    toast.info("Vui lòng đăng nhập để sử dụng tính năng lưu tin tức!")
     router.push("/login")
     return
   }
 
   const url = targetUrl.value || (article.value ? article.value.link : "")
   if (!url) {
-    alert("Không tìm thấy đường dẫn bài viết để lưu!")
+    toast.error("Không tìm thấy đường dẫn bài viết để lưu!")
     return
   }
 
@@ -141,7 +142,7 @@ const toggleBookmark = () => {
       .then(data => {
         isBookmarked.value = false
         dbArticleId.value = null
-        alert("Đã xóa khỏi danh sách lưu tin!")
+        toast.success("Đã xóa khỏi danh sách lưu tin!")
       })
       .catch(err => console.error("Lỗi xoá lưu tin:", err))
   } else {
@@ -159,7 +160,7 @@ const toggleBookmark = () => {
       .then(res => res.json())
       .then(data => {
         isBookmarked.value = true
-        alert("Lưu tin tức thành công!")
+        toast.success("Lưu tin tức thành công!")
         checkBookmarkStatus(url)
       })
       .catch(err => console.error("Lỗi lưu tin:", err))

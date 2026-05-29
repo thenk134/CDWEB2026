@@ -81,6 +81,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { toast } from '../utils/toast'
 
 const username = ref("")
 const email = ref("")
@@ -118,7 +119,7 @@ const handleRegister = () => {
       return data
     })
     .then((data) => {
-      alert(data.message + " Hãy đăng nhập để tiếp tục.")
+      toast.success(data.message + " Hãy đăng nhập để tiếp tục.")
       router.push("/login")
     })
     .catch((err) => {

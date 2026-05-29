@@ -113,6 +113,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { toast } from '../utils/toast'
 
 const route = useRoute()
 const router = useRouter()
@@ -191,7 +192,7 @@ const saveArticle = () => {
       return data
     })
     .then((data) => {
-      alert(isEdit.value ? "Cập nhật bài viết thành công!" : "Đăng bài viết mới thành công!")
+      toast.success(isEdit.value ? "Cập nhật bài viết thành công!" : "Đăng bài viết mới thành công!")
       router.push("/admin")
     })
     .catch((err) => {

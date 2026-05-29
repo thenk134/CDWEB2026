@@ -103,6 +103,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from 'vue'
+import { toast } from '../utils/toast'
 
 const articles = ref([])
 const loading = ref(true)
@@ -126,7 +127,7 @@ const fetchArticles = () => {
     })
     .catch(err => {
       console.error(err)
-      alert("Lỗi tải tin tức: " + err.message)
+      toast.error("Lỗi tải tin tức: " + err.message)
     })
     .finally(() => {
       loading.value = false
@@ -147,12 +148,12 @@ const deleteArticle = (id) => {
   })
     .then(res => res.json())
     .then(data => {
-      alert(data.message || "Đã xóa bài viết thành công!")
+      toast.success(data.message || "Đã xóa bài viết thành công!")
       fetchArticles()
     })
     .catch(err => {
       console.error(err)
-      alert("Lỗi xóa bài viết!")
+      toast.error("Lỗi xóa bài viết!")
     })
 }
 

@@ -10,6 +10,8 @@ import ForgotPassword from '../pages/ForgotPassword.vue'
 import AdminDashboard from '../pages/AdminDashboard.vue'
 import AdminEditNews from '../pages/AdminEditNews.vue'
 
+import { toast } from '../utils/toast'
+
 const routes = [
   {
     path: '/',
@@ -81,7 +83,7 @@ router.beforeEach((to, from, next) => {
   if (to.matched.some(record => record.meta.requiresAdmin)) {
     const role = localStorage.getItem('user_role')
     if (role !== 'ADMIN') {
-      alert('Bạn không có quyền truy cập trang quản trị này!')
+      toast.error('Bạn không có quyền truy cập trang quản trị này!')
       next('/login')
     } else {
       next()

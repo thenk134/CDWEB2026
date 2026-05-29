@@ -97,6 +97,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { toast } from '../utils/toast'
 
 const email = ref("")
 const resetToken = ref("")
@@ -168,7 +169,7 @@ const submitNewPassword = () => {
       return data
     })
     .then((data) => {
-      alert(data.message)
+      toast.success(data.message)
       router.push("/login")
     })
     .catch((err) => {

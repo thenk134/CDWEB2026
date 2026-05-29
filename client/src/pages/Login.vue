@@ -64,6 +64,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
+import { toast } from '../utils/toast'
 
 const username = ref("")
 const password = ref("")
@@ -97,7 +98,7 @@ const handleLogin = () => {
       localStorage.setItem("username", data.user.username)
       localStorage.setItem("user_role", data.user.role)
       
-      alert(data.message)
+      toast.success(data.message)
       if (data.user.role === "ADMIN") {
         router.push("/admin")
       } else {
