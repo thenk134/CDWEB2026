@@ -35,9 +35,31 @@ public class NewsSyncService {
         // Đồng bộ các danh mục của Tuổi Trẻ và Người Lao Động
         for (String category : categories) {
             syncFeed("https://tuoitre.vn/rss/" + category + ".rss", "tuoitre", category);
-            syncFeed("https://nld.com.vn/" + category + ".rss", "nld", category);
+            String nldUrl = getCleanNldRssUrl(category);
+            if (nldUrl != null) {
+                syncFeed(nldUrl, "nld", category);
+            }
         }
         System.out.println("✅ Đồng bộ tin tức hoàn tất!");
+    }
+
+    private String getCleanNldRssUrl(String category) {
+        switch (category) {
+            case "thoi-su":
+                return "https://nld.com.vn/rss/thoi-su.rss";
+            case "viec-lam":
+                return "https://nld.com.vn/rss/lao-dong/viec-lam.rss";
+            case "phap-luat":
+                return "https://nld.com.vn/rss/phap-luat.rss";
+            case "bao-hiem":
+                return "https://nld.com.vn/rss/lao-dong/an-sinh-xa-hoi.rss";
+            case "cong-doan":
+                return "https://nld.com.vn/rss/lao-dong/cong-doan-cong-nhan.rss";
+            case "suc-khoe":
+                return "https://nld.com.vn/rss/suc-khoe.rss";
+            default:
+                return null;
+        }
     }
 
     private void syncFeed(String rssUrl, String source, String category) {
