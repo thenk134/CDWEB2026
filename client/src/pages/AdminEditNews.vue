@@ -186,6 +186,9 @@ const saveArticle = () => {
   })
     .then(async (res) => {
       const data = await res.json()
+      if (res.status === 404) {
+        router.push({ name: 'NotFound' })
+      }
       if (!res.ok) {
         throw new Error(data.message || "Không thể lưu bài viết!")
       }

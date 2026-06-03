@@ -17,12 +17,23 @@
     <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
       <div class="w-full md:w-96 relative">
         <span class="absolute left-3 top-3 text-gray-400">🔍</span>
-        <input 
-          type="text" 
-          v-model="searchTerm" 
+        <input
+          type="text"
+          v-model="searchTerm"
           placeholder="Lọc nhanh tiêu đề bài viết..."
           class="w-full pl-9 pr-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-700/20 focus:border-red-700 transition text-sm"
         />
+      </div>
+      <div class="w-full sm:w-56">
+        <select
+            v-model="selectedCategory"
+            class="w-full px-3 py-2.5 rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-red-700/20 focus:border-red-700 transition text-sm font-medium text-gray-700 cursor-pointer"
+        >
+          <option value="">📂 Tất cả danh mục</option>
+          <option v-for="cat in categories" :key="cat.slug" :value="cat.slug">
+            {{ cat.name }}
+          </option>
+        </select>
       </div>
       <div class="text-sm text-gray-500 font-medium">
         Tổng số: <span class="text-red-700 font-bold">{{ filteredArticles.length }}</span> bài viết
@@ -108,6 +119,7 @@ import { toast } from '../utils/toast'
 const articles = ref([])
 const loading = ref(true)
 const searchTerm = ref("")
+const selectedCategory = ref("")
 
 const fetchArticles = () => {
   loading.value = true
@@ -133,7 +145,21 @@ const fetchArticles = () => {
       loading.value = false
     })
 }
-
+const categories = [
+  { slug: "tin-moi-nhat", name: "Trang chủ (Tin mới nhất)" },
+  { slug: "thoi-su", name: "Thời sự" },
+  { slug: "viec-lam", name: "Việc làm" },
+  { slug: "phap-luat", name: "Pháp luật" },
+  { slug: "bao-hiem", name: "Bảo hiểm" },
+  { slug: "cong-doan", name: "Công đoàn" },
+  { slug: "suc-khoe", name: "Sức khỏe" },
+  { slug: "quandiem-tranhluan", name: "Quan điểm - Tranh luận" }
+]
+// Hàm bổ sung: Giúp hiển thị tên Tiếng Việt đẹp hơn
+const getCategoryName = (slug) => {
+  const found = categories.find(c => c.slug === slug)
+  return found ? found.name : slug
+}
 const deleteArticle = (id) => {
   if (!confirm("Bạn có chắc chắn muốn xóa bài viết này không? Hành động này không thể hoàn tác.")) {
     return
@@ -159,8 +185,18 @@ const deleteArticle = (id) => {
 
 const filteredArticles = computed(() => {
   const term = searchTerm.value.toLowerCase().trim()
-  if (!term) return articles.value
-  return articles.value.filter(a => a.title.toLowerCase().includes(term))
+  const cat = selectedCategory.value // Lấy giá trị danh mục đang được chọn (ref(""))
+
+  return articles.value.filter(a => {
+    // Nếu ô tìm kiếm trống (!term) thì coi như Luôn Đúng, ngược lại thì tìm trong tiêu đề
+    const matchesSearch = !term || (a.title && a.title.toLowerCase().includes(term))
+
+    // Nếu danh mục chọn "Tất cả" (!cat) thì coi như Luôn Đúng, ngược lại thì thuộc tính category phải trùng với danh mục được chọn
+    const matchesCategory = !cat || a.category === cat
+
+    // Bài viết hợp lệ là bài viết phải thỏa mãn ĐỒNG THỜI cả 2 bộ lọc trên
+    return matchesSearch && matchesCategory
+  })
 })
 
 const formatDate = (dateStr) => {

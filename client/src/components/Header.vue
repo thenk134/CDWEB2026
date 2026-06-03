@@ -142,6 +142,7 @@
           <li><router-link to="/category/cong-doan" class="hover:text-yellow-400 transition">Công đoàn</router-link></li>
           <li><router-link to="/category/suc-khoe" class="hover:text-yellow-400 transition">Sức khỏe</router-link></li>
           <li><router-link to="/bookmarks" class="hover:text-yellow-400 transition">📌 TIN ĐÃ LƯU</router-link></li>
+          <li><router-link to="/category/quandiem-tranhluan" class="hover:text-yellow-400 transition">Quan điểm - Tranh luận</router-link></li>
         </ul>
       </div>
     </nav>
