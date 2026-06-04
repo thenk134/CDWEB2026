@@ -82,7 +82,14 @@ const fetchDetail = (url) => {
   if (!url) return
   loading.value = true
   fetch(`http://localhost:5000/api/news-detail?url=${encodeURIComponent(url)}`)
-    .then(res => res.json())
+    .then(res => {
+      if (res.status === 404) {
+        router.push({ name: 'NotFound' }) // Chuyển hướng sang trang 404
+        throw new Error("Không tìm thấy bài viết") // Ngắt chuỗi then
+      }
+      if (!res.ok) throw new Error("Lỗi máy chủ")
+      return res.json()
+    })
     .then(data => {
       article.value = data
       loading.value = false
@@ -91,6 +98,9 @@ const fetchDetail = (url) => {
       console.error("Lỗi:", err)
       loading.value = false
     })
+      .finally(() => {
+        loading.value = false
+      })
 }
 
 const checkBookmarkStatus = (url) => {

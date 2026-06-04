@@ -9,6 +9,7 @@ import Register from '../pages/Register.vue'
 import ForgotPassword from '../pages/ForgotPassword.vue'
 import AdminDashboard from '../pages/AdminDashboard.vue'
 import AdminEditNews from '../pages/AdminEditNews.vue'
+import NotFound from '../pages/NotFound.vue'
 
 import { toast } from '../utils/toast'
 
@@ -70,6 +71,11 @@ const routes = [
     name: 'AdminEditNews',
     component: AdminEditNews,
     meta: { requiresAdmin: true }
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: NotFound
   }
 ]
 
