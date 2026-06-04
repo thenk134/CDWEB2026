@@ -5,12 +5,21 @@
         <h1 class="text-3xl font-black text-gray-800 uppercase tracking-tight">Quản Lý Tin Tức</h1>
         <p class="text-gray-500 text-sm">Quản trị toàn bộ bài viết trong hệ thống cơ sở dữ liệu</p>
       </div>
-      <router-link 
-        to="/admin/create" 
-        class="bg-green-600 hover:bg-green-700 text-white font-bold px-5 py-2.5 rounded-lg shadow transition flex items-center gap-2"
-      >
-        <span>➕</span> Đăng bài viết mới
-      </router-link>
+      <div class="flex flex-wrap gap-3">
+        <router-link
+            to="/admin/user-posts"
+            class="bg-orange-500 hover:bg-orange-600 text-white font-bold px-5 py-2.5 rounded-lg shadow transition flex items-center gap-2"
+        >
+          <span>📝</span> Quản lý bài viết cá nhân
+        </router-link>
+
+        <router-link
+            to="/admin/create"
+            class="bg-green-600 hover:bg-green-700 text-white font-bold px-5 py-2.5 rounded-lg shadow transition flex items-center gap-2"
+        >
+          <span>➕</span> Đăng bài viết mới
+        </router-link>
+      </div>
     </div>
 
     <!-- Thanh công cụ tìm kiếm và lọc nội bộ -->

@@ -98,12 +98,11 @@
             <span class="text-gray-700 hidden md:inline">
               Chào, <span class="text-red-700 font-bold">{{ username }}</span>
             </span>
-            <router-link 
-              v-if="isAdmin" 
-              to="/admin" 
-              class="bg-amber-500 text-white px-3 py-1.5 rounded-full hover:bg-amber-600 transition text-xs shadow-sm"
+            <router-link
+                to="/account-management"
+                class="bg-amber-500 text-white px-3 py-1.5 rounded-full hover:bg-amber-600 transition text-xs shadow-sm font-bold"
             >
-              ⚙️ Quản lý
+              ⚙️ Quản lý tài khoản
             </router-link>
             <button 
               @click="handleLogout" 

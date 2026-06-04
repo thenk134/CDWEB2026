@@ -52,6 +52,7 @@ public class BookmarkController {
         // Trả về danh sách các bài viết tương ứng
         List<Article> articles = bookmarks.stream()
                 .map(Bookmark::getArticle)
+                .filter(article -> article != null && article.getStatus() == 1)
                 .collect(Collectors.toList());
 
         return ResponseEntity.ok(articles);
