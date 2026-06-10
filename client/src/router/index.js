@@ -76,7 +76,37 @@ const routes = [
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: NotFound
-  }
+  },
+  {
+    path: '/admin/user-posts',
+    name: 'UserPostManagement',
+    // Sử dụng lazy-loading (import động) giúp ứng dụng tải nhanh hơn
+    component: () => import('../pages/UserPostManagement.vue'),
+    meta: { requiresAdmin: true } // Đánh dấu trang này bắt buộc phải là Admin mới vào được
+  },
+  {
+    path: '/admin/user-posts/:id',
+    name: 'UserPostDetail',
+    component: () => import('../pages/UserPostDetail.vue'),
+    // Bật props: true để biến tham số :id trên URL thành một biến props trong component Vue
+    props: true,
+    meta: { requiresAdmin: true }
+  },
+  {
+    path: '/account-management',
+    name: 'AccountManagement',
+    component: () => import('../pages/AccountManagement.vue')
+  },
+  {
+    path: '/my-posts',
+    name: 'MyPosts',
+    component: () => import('../pages/MyPosts.vue')
+  },
+  {
+    path: '/my-post/create',
+    name: 'CreateMyPost',
+    component: () => import('../pages/CreateMyPost.vue')
+  },
 ]
 
 const router = createRouter({

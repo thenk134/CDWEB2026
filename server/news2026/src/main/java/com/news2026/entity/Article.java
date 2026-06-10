@@ -33,7 +33,12 @@ public class Article {
 
     private String category;
 
-    private String source; // "tuoitre", "nld", "vnexpress", "admin"
+    private String source; // "tuoitre", "nld", "vnexpress", "admin", "member name"
+
+    // 0 = Chờ duyệt (Hội viên viết), 1 = Đã đăng (RSS mạng & Admin đăng), 2 = Vi phạm (Bị ẩn)
+    // Mặc định là 1 để tin cào từ mạng tự động hiển thị ngay lập tức không cần duyệt
+    @Column(nullable = false)
+    private int status = 1;
 
     // Getters and Setters
     public Long getId() {
@@ -114,5 +119,13 @@ public class Article {
 
     public void setSource(String source) {
         this.source = source;
+    }
+
+    public int getStatus() {
+        return status;
+    }
+
+    public void setStatus(int status) {
+        this.status = status;
     }
 }

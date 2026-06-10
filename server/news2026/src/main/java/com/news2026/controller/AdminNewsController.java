@@ -147,4 +147,46 @@ public class AdminNewsController {
         articleRepository.deleteById(id);
         return ResponseEntity.ok(Map.of("message", "Xóa bài viết thành công!"));
     }
+    // Lấy danh sách bài viết "Quan điểm - Tranh luận" đang CHỜ DUYỆT (status = 0)
+    @GetMapping("/pending")
+    public ResponseEntity<?> getPendingUserPosts(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authenticateAdmin(authHeader).isEmpty()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Quyền truy cập bị từ chối!"));
+        }
+
+        // Lấy các bài viết thuộc danh mục mới và trạng thái = 0 (Chờ duyệt)
+        List<Article> pendingPosts = articleRepository.findByStatusOrderByIdDesc(0);
+        return ResponseEntity.ok(pendingPosts);
+    }
+    // Xử lý Xét duyệt (status = 1) hoặc Đánh dấu vi phạm (status = 2)
+    @PutMapping("/{id}/review")
+    public ResponseEntity<?> reviewPost(
+            @PathVariable Long id,
+            @RequestParam int status,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+
+        if (authenticateAdmin(authHeader).isEmpty()) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Quyền truy cập bị từ chối!"));
+        }
+
+        Optional<Article> postOpt = articleRepository.findById(id);
+        if (postOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Không tìm thấy bài viết này!"));
+        }
+
+        Article post = postOpt.get();
+
+        // Cập nhật trạng thái duyệt (1) hoặc vi phạm (2)
+        post.setStatus(status);
+
+        // FIX LỖI CRASH THỜI GIAN TẠI ĐÂY: Dùng Date() chuẩn của hệ thống
+        if (status == 1) {
+            post.setPubDate(new java.util.Date().toString());
+        }
+
+        articleRepository.save(post);
+
+        String msg = (status == 1) ? "Xét duyệt và đăng bài thành công!" : "Đã đánh dấu vi phạm và ẩn bài viết!";
+        return ResponseEntity.ok(Map.of("message", msg));
+    }
 }

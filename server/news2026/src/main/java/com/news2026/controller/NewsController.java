@@ -1,7 +1,9 @@
 package com.news2026.controller;
 
 import com.news2026.entity.Article;
+import com.news2026.entity.User;
 import com.news2026.repository.ArticleRepository;
+import com.news2026.service.UserService;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -11,6 +13,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 @RestController
@@ -20,14 +24,26 @@ public class NewsController {
     @Autowired
     private ArticleRepository articleRepository;
 
+    @Autowired
+    private UserService userService;
+
+    // kiểm tra token và lấy thông tin User/Member đăng nhập
+    private Optional<User> authenticateUser(String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return Optional.empty();
+        }
+        String token = authHeader.substring(7);
+        return userService.getUserByToken(token);
+    }
+
     @GetMapping("/news/home-laodong")
     public ResponseEntity<?> getHomeNews() {
         try {
             // Lấy các bài báo thuộc danh mục trang chủ "tin-moi-nhat"
-            List<Article> articles = articleRepository.findByCategoryOrderByPubDateDesc("tin-moi-nhat");
+            List<Article> articles = articleRepository.findByCategoryAndStatusOrderByPubDateDesc("tin-moi-nhat", 1);
             if (articles.isEmpty()) {
                 // Nếu rỗng, lấy tạm 20 bài báo mới nhất trong hệ thống
-                articles = articleRepository.findAllByOrderByIdDesc();
+                articles = articleRepository.findByStatusOrderByIdDesc(1);
                 if (articles.size() > 20) {
                     articles = articles.subList(0, 20);
                 }
@@ -43,10 +59,10 @@ public class NewsController {
     @GetMapping("/news/{source}/{category}")
     public ResponseEntity<?> getCategoryNews(@PathVariable String source, @PathVariable String category) {
         try {
-            List<Article> articles = articleRepository.findByCategoryAndSourceOrderByPubDateDesc(category, source);
+            List<Article> articles = articleRepository.findByCategoryAndSourceAndStatusOrderByPubDateDesc(category, source, 1);
             if (articles.isEmpty()) {
                 // Nếu không tìm thấy theo nguồn, thử tìm tất cả các nguồn của danh mục đó
-                articles = articleRepository.findByCategoryOrderByPubDateDesc(category);
+                articles = articleRepository.findByCategoryAndStatusOrderByPubDateDesc(category, 1);
             }
             return ResponseEntity.ok(articles);
         } catch (Exception e) {
@@ -61,7 +77,7 @@ public class NewsController {
             if (query == null || query.trim().isEmpty()) {
                 return ResponseEntity.ok(Collections.emptyList());
             }
-            List<Article> articles = articleRepository.findByTitleContainingIgnoreCaseOrDescriptionContainingIgnoreCaseOrderByPubDateDesc(query, query);
+            List<Article> articles = articleRepository.searchPublicArticles(query, 1);
             return ResponseEntity.ok(articles);
         } catch (Exception e) {
             e.printStackTrace();
@@ -203,5 +219,166 @@ public class NewsController {
                     "content", "Không thể lấy nội dung từ nguồn này: " + e.getMessage()
             ));
         }
+    }
+    // Đăng bài viết mới dành cho Member (Ép cứng status = 0 và mục Quan điểm)
+
+    @PostMapping("/news/my-posts")
+    public ResponseEntity<?> createMemberPost(
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody Article articleData) {
+
+        Optional<User> userOpt = authenticateUser(authHeader);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Bạn cần đăng nhập trước khi thực hiện chức năng này!"));
+        }
+        User user = userOpt.get();
+
+        if (articleData.getTitle() == null || articleData.getTitle().trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Tiêu đề không được để trống!"));
+        }
+
+        Article article = new Article();
+        article.setTitle(articleData.getTitle());
+        article.setDescription(articleData.getDescription());
+        article.setContent(articleData.getDescription()); // Đồng bộ nội dung bài viết
+        article.setImage(articleData.getImage() != null && !articleData.getImage().isEmpty() ?
+                articleData.getImage() : "https://via.placeholder.com/400x250");
+
+        article.setCategory("quandiem-tranhluan");
+        article.setStatus(0);                    // Trạng thái Chờ duyệt bắt buộc
+        article.setSource(user.getUsername());
+        article.setLocal(true);
+
+        // Tạo link ngẫu nhiên bảo mật tránh trùng lặp tin tức
+        article.setLink("/news/local-" + UUID.randomUUID().toString());
+
+        // định dạng giờ an toàn
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss Z", java.util.Locale.ENGLISH);
+        article.setPubDate(java.time.ZonedDateTime.now().format(formatter));
+
+        Article saved = articleRepository.save(article);
+        return ResponseEntity.ok(saved);
+    }
+    //Lấy danh sách bài viết của riêng cá nhân Member
+
+    @GetMapping("/news/my-posts")
+    public ResponseEntity<?> getMyPosts(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        Optional<User> userOpt = authenticateUser(authHeader);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Vui lòng đăng nhập!"));
+        }
+        User user = userOpt.get();
+
+        // Lấy tất cả bài viết nội bộ và lọc ra bài do chính User này viết (Dựa trên trường Source)
+        List<Article> allArticles = articleRepository.findAllByOrderByIdDesc();
+        List<Article> myArticles = allArticles.stream()
+                .filter(article -> user.getUsername().equalsIgnoreCase(article.getSource()))
+                .toList();
+
+        return ResponseEntity.ok(myArticles);
+    }
+    /**
+     * API 3: Lấy chi tiết bài viết cá nhân bằng ID (Dành cho việc đổ dữ liệu lên form Chỉnh sửa ở Frontend)
+     * Đường dẫn: GET http://localhost:5000/api/news/my-posts/{id}
+     */
+    @GetMapping("/news/my-posts/{id}")
+    public ResponseEntity<?> getMyPostById(
+            @PathVariable Long id,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+
+        Optional<User> userOpt = authenticateUser(authHeader);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Vui lòng đăng nhập trước!"));
+        }
+        User user = userOpt.get();
+
+        Optional<Article> articleOpt = articleRepository.findById(id);
+        if (articleOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Bài viết không tồn tại trên hệ thống."));
+        }
+
+        Article article = articleOpt.get();
+
+        // KIỂM TRA BẢO MẬT: Người yêu cầu xem/sửa phải trùng tên Username với tác giả (trường Source) của bài viết
+        if (!user.getUsername().equalsIgnoreCase(article.getSource())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Bạn không có quyền can thiệp vào bài viết của người khác!"));
+        }
+
+        return ResponseEntity.ok(article);
+    }
+
+    /**
+     * Cập nhật nội dung sửa đổi bài viết của Member (Tự động đưa status về 0)
+     * PUT http://localhost:5000/api/news/my-posts/{id}
+     */
+    @PutMapping("/news/my-posts/{id}")
+    public ResponseEntity<?> updateMemberPost(
+            @PathVariable Long id,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody Article updatedData) {
+
+        Optional<User> userOpt = authenticateUser(authHeader);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Vui lòng đăng nhập hệ thống!"));
+        }
+        User user = userOpt.get();
+
+        Optional<Article> articleOpt = articleRepository.findById(id);
+        if (articleOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Bài viết cần sửa không tồn tại."));
+        }
+
+        Article existingArticle = articleOpt.get();
+
+        // không cho sửa bài viết của thành viên khác
+        if (!user.getUsername().equalsIgnoreCase(existingArticle.getSource())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Hành động bị cấm! Bạn không sở hữu bài viết này."));
+        }
+
+        // ghi nhận thông tin chỉnh sửa mới
+        existingArticle.setTitle(updatedData.getTitle());
+        existingArticle.setDescription(updatedData.getDescription());
+        existingArticle.setContent(updatedData.getDescription()); // Đồng bộ trường Content
+        if (updatedData.getImage() != null && !updatedData.getImage().isEmpty()) {
+            existingArticle.setImage(updatedData.getImage());
+        }
+
+        // ĐƯA TRẠNG THÁI VỀ 0 để Admin thấy
+        existingArticle.setStatus(0);
+
+        // CẬP NHẬT THỜI GIAN
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("EEE, dd MMM yyyy HH:mm:ss Z", java.util.Locale.ENGLISH);
+        existingArticle.setPubDate(java.time.ZonedDateTime.now().format(formatter));
+
+        Article saved = articleRepository.save(existingArticle);
+        return ResponseEntity.ok(saved);
+    }
+
+    @DeleteMapping("/news/my-posts/{id}")
+    public ResponseEntity<?> deleteMemberPost(
+            @PathVariable Long id,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+
+        Optional<User> userOpt = authenticateUser(authHeader);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Yêu cầu đăng nhập!"));
+        }
+        User user = userOpt.get();
+
+        Optional<Article> articleOpt = articleRepository.findById(id);
+        if (articleOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Bài viết không tồn tại."));
+        }
+
+        Article article = articleOpt.get();
+
+        // Chỉ cho phép xóa bài của chính mình viết
+        if (!user.getUsername().equalsIgnoreCase(article.getSource())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Bạn không được phép xóa bài viết của người khác!"));
+        }
+
+        // xóa khỏi Database thông qua JPA Repository
+        articleRepository.delete(article);
+        return ResponseEntity.ok(Map.of("message", "Đã gỡ bỏ bài viết thành công!"));
     }
 }
