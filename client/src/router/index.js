@@ -78,6 +78,12 @@ const routes = [
     component: NotFound
   },
   {
+    path: '/admin/revenue',
+    name: 'AdminRevenue',
+    component: () => import('../pages/AdminRevenue.vue'),
+    meta: { requiresAdmin: true }
+  },
+  {
     path: '/admin/user-posts',
     name: 'UserPostManagement',
     // Sử dụng lazy-loading (import động) giúp ứng dụng tải nhanh hơn
@@ -106,6 +112,12 @@ const routes = [
     path: '/my-post/create',
     name: 'CreateMyPost',
     component: () => import('../pages/CreateMyPost.vue')
+  },
+  {
+    path: '/member/:username',
+    name: 'MemberProfile',
+    component: () => import('../pages/MemberProfile.vue'),
+    props: true
   },
 ]
 

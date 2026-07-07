@@ -35,7 +35,10 @@
         <div>
           <label class="block text-xs font-bold text-gray-700 uppercase mb-2">Chuyên mục đăng ký</label>
           <div class="w-full px-4 py-2.5 bg-gray-100 border border-gray-200 rounded-lg text-sm font-bold text-red-700 flex items-center justify-between">
-            <span>🗣️ Quan điểm - Tranh luận</span>
+            <span class="flex items-center gap-1.5">
+              <MessageSquare class="w-4 h-4 text-red-700" />
+              <span>Quan điểm - Tranh luận</span>
+            </span>
             <span class="text-[10px] bg-red-100 text-red-800 px-2 py-0.5 rounded font-black uppercase tracking-wide">Cố định</span>
           </div>
         </div>
@@ -94,6 +97,7 @@
 <script setup>
 import { ref, onMounted, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { MessageSquare } from 'lucide-vue-next'
 
 const router = useRouter()
 const route = useRoute()

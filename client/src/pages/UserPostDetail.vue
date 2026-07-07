@@ -1,8 +1,9 @@
 <template>
   <main class="container mx-auto px-4 py-8 max-w-4xl min-h-screen">
     <div class="mb-6">
-      <router-link to="/admin/user-posts" class="text-red-700 hover:underline flex items-center gap-1 text-sm font-bold">
-        ⬅️ Quay lại danh sách chờ duyệt
+      <router-link to="/admin/user-posts" class="text-red-700 hover:underline flex items-center gap-1.5 text-sm font-bold">
+        <ArrowLeft class="w-4 h-4 text-red-700" />
+        <span>Quay lại danh sách chờ duyệt</span>
       </router-link>
     </div>
 
@@ -64,6 +65,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { ArrowLeft } from 'lucide-vue-next'
 
 // 1. Nhận biến 'id' từ URL (do router cấu hình props: true)
 const props = defineProps({

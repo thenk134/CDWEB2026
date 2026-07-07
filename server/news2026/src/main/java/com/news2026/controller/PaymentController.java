@@ -42,8 +42,8 @@ public class PaymentController {
 
         User user = userOpt.get();
 
-        // Định giá gói Hội viên cố định: $2.00 USD
-        double amount = 2.00;
+        // Định giá gói Hội viên cố định: $9.99 USD
+        double amount = 9.99;
         
         // Tạo mã hóa giao dịch PayPal độc nhất
         String uniqueId = UUID.randomUUID().toString().substring(0, 5);
@@ -83,11 +83,18 @@ public class PaymentController {
             order.setStatus("PAID");
             paymentOrderRepository.save(order);
 
-            // Nâng cấp quyền người dùng thành MEMBER
+            // Nâng cấp quyền người dùng thành MEMBER và đặt thời gian hết hạn 30 ngày
             Optional<User> userOpt = userRepository.findById(order.getUserId());
             if (userOpt.isPresent()) {
                 User user = userOpt.get();
                 user.setRole("MEMBER");
+                
+                java.time.LocalDate now = java.time.LocalDate.now();
+                if (user.getVipExpireDate() == null || user.getVipExpireDate().isBefore(now)) {
+                    user.setVipExpireDate(now.plusDays(30));
+                } else {
+                    user.setVipExpireDate(user.getVipExpireDate().plusDays(30));
+                }
                 userRepository.save(user);
             }
             return ResponseEntity.ok(Map.of("message", "Thanh toán thành công và tài khoản đã được nâng cấp thành Hội viên!"));

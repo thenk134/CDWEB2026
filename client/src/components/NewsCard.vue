@@ -3,15 +3,16 @@
     <button 
       @click="handleBookmark" 
       :class="[
-        'absolute top-2 right-2 p-2 rounded-full shadow-md z-10 transition-colors',
-        isSaved ? 'bg-red-600 text-white' : 'bg-white text-gray-400 hover:text-red-500'
+        'absolute top-2 right-2 p-2 rounded-full shadow-md z-10 transition-colors flex items-center justify-center cursor-pointer border',
+        isSaved ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-400 hover:text-red-500 border-gray-100'
       ]"
       :title="isSaved ? 'Bỏ lưu' : 'Lưu tin này'"
     >
-      📌
+      <Bookmark :class="['w-3.5 h-3.5', isSaved ? 'text-white fill-white' : 'text-gray-400']" />
     </button>
-    <div v-if="news.exclusive || news.isExclusive" class="absolute top-2 left-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-[10px] px-2.5 py-1 rounded-full uppercase shadow-md tracking-wider z-10">
-      ⭐ Hội Viên
+    <div v-if="news.exclusive || news.isExclusive" class="absolute top-2 left-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-[10px] px-2.5 py-1 rounded-full uppercase shadow-md tracking-wider z-10 flex items-center gap-1">
+      <Star class="w-3.5 h-3.5 text-white fill-white" />
+      <span>Hội Viên</span>
     </div>
     <img 
       :src="news.image" 
@@ -19,8 +20,8 @@
       class="w-full h-48 object-cover" 
     />
     <div class="p-5">
-      <div class="flex items-center text-xs text-gray-400 mb-2">
-         <span class="mr-1">🕒</span>
+      <div class="flex items-center text-xs text-gray-400 mb-2 gap-1">
+         <Clock class="w-3.5 h-3.5 text-gray-400" />
          <span>{{ formatDate(news.date || news.pubDate) }}</span>
       </div>
       <h3 class="font-bold text-lg text-gray-900 mb-3 line-clamp-2">
@@ -45,6 +46,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { toast } from '../utils/toast'
+import { Bookmark, Star, Clock } from 'lucide-vue-next'
 
 const props = defineProps({
   news: {

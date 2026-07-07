@@ -22,6 +22,7 @@ public class User {
     @Column(nullable = false)
     private String role; // "USER" hoặc "ADMIN"
 
+    @Column(length = 1000)
     private String token;
 
     @Column(name = "reset_token")
@@ -30,7 +31,17 @@ public class User {
     @Column(nullable = false, columnDefinition = "double precision default 0.0")
     private double points = 0.0;
 
+    @Column(name = "vip_expire_date")
+    private java.time.LocalDate vipExpireDate;
+
     // Getters and Setters
+    public java.time.LocalDate getVipExpireDate() {
+        return vipExpireDate;
+    }
+
+    public void setVipExpireDate(java.time.LocalDate vipExpireDate) {
+        this.vipExpireDate = vipExpireDate;
+    }
     public Long getId() {
         return id;
     }

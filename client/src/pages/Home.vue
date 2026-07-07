@@ -46,8 +46,8 @@
         </div>
 
         <!-- Box giới thiệu Hội viên -->
-        <div class="bg-red-50 p-5 rounded-2xl border border-red-100 shadow-sm text-center">
-          <span class="text-3xl">⭐</span>
+        <div class="bg-red-50 p-5 rounded-2xl border border-red-100 shadow-sm text-center flex flex-col items-center">
+          <Star class="w-8 h-8 text-amber-500 fill-amber-500" />
           <h4 class="font-black text-red-950 mt-2 text-sm uppercase">Quyền lợi Hội Viên</h4>
           <p class="text-[11px] text-gray-600 mt-2 leading-relaxed mb-4">Đọc không giới hạn các tin độc quyền, bình luận hai chiều, và tham gia viết bài nhận điểm nhuận bút.</p>
           <router-link to="/account-management" class="bg-red-700 hover:bg-red-800 text-white font-bold text-xs px-5 py-2 rounded-full shadow-sm transition inline-block">NÂNG CẤP NGAY</router-link>
@@ -62,6 +62,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import NewsCard from '../components/NewsCard.vue'
+import { Star } from 'lucide-vue-next'
 
 const news = ref([])
 const loading = ref(true)

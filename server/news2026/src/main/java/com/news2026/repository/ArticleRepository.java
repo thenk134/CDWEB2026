@@ -18,6 +18,7 @@ public interface ArticleRepository extends JpaRepository<Article, Long> {
     List<Article> findByCategoryAndSourceAndStatusOrderByPubDateDesc(String category, String source, int status);
     List<Article> findByCategoryAndStatusOrderByIdDesc(String category, int status);
     List<Article> findByStatusOrderByIdDesc(int status);
+    List<Article> findBySourceAndStatusOrderByPubDateDesc(String source, int status);
     // 4. Tìm kiếm công khai (Chỉ tìm bài đã duyệt)
     @Query("SELECT a FROM Article a WHERE a.status = :status AND " +
             "(LOWER(a.title) LIKE LOWER(CONCAT('%', :query, '%')) OR " +

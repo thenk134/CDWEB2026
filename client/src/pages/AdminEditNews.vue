@@ -1,8 +1,9 @@
 <template>
   <main class="container mx-auto px-4 py-8 max-w-4xl min-h-screen">
     <div class="mb-6">
-      <router-link to="/admin" class="text-red-700 hover:underline flex items-center gap-1 text-sm font-bold">
-        ⬅️ Quay lại danh sách quản lý
+      <router-link to="/admin" class="text-red-700 hover:underline flex items-center gap-1.5 text-sm font-bold">
+        <ArrowLeft class="w-4 h-4 text-red-700" />
+        <span>Quay lại danh sách quản lý</span>
       </router-link>
     </div>
 
@@ -63,8 +64,9 @@
             v-model="article.exclusive" 
             class="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500 cursor-pointer"
           />
-          <label for="exclusive" class="text-sm font-bold text-gray-800 cursor-pointer select-none">
-             ⭐ Tin Độc Quyền (Chỉ dành cho Hội Viên)
+          <label for="exclusive" class="text-sm font-bold text-gray-800 cursor-pointer select-none flex items-center gap-1.5">
+             <Star class="w-4 h-4 text-amber-500 fill-amber-500" />
+             <span>Tin Độc Quyền (Chỉ dành cho Hội Viên)</span>
           </label>
         </div>
 
@@ -127,6 +129,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from '../utils/toast'
+import { ArrowLeft, Star } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()

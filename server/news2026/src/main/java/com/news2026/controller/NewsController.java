@@ -20,9 +20,11 @@ import java.util.*;
 import com.news2026.entity.ReadLog;
 import com.news2026.entity.Comment;
 import com.news2026.entity.CommentVote;
+import com.news2026.entity.PointTransaction;
 import com.news2026.repository.ReadLogRepository;
 import com.news2026.repository.CommentRepository;
 import com.news2026.repository.CommentVoteRepository;
+import com.news2026.repository.PointTransactionRepository;
 import com.news2026.repository.UserRepository;
 
 @RestController
@@ -46,6 +48,9 @@ public class NewsController {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private PointTransactionRepository pointTransactionRepository;
 
     // kiểm tra token và lấy thông tin User/Member đăng nhập
     private Optional<User> authenticateUser(String authHeader) {
@@ -228,8 +233,13 @@ public class NewsController {
             if (authorOpt.isPresent()) {
                 User author = authorOpt.get();
                 if (article.getViews() % 10 == 0) {
-                    author.setPoints(author.getPoints() + 1.0);
+                    author.setPoints(Math.round((author.getPoints() + 1.0) * 10.0) / 10.0);
                     userRepository.save(author);
+                    pointTransactionRepository.save(new PointTransaction(
+                            author.getId(),
+                            1.0,
+                            "Bài viết '" + article.getTitle() + "' đạt mốc " + article.getViews() + " lượt xem"
+                    ));
                 }
             }
         }
@@ -280,6 +290,14 @@ public class NewsController {
             }
         }
 
+        Long authorId = null;
+        if (article.isLocal() && !"admin".equalsIgnoreCase(article.getSource())) {
+            Optional<User> authorOpt = userRepository.findByUsername(article.getSource());
+            if (authorOpt.isPresent()) {
+                authorId = authorOpt.get().getId();
+            }
+        }
+
         Map<String, Object> response = new HashMap<>();
         response.put("id", article.getId());
         response.put("title", article.getTitle());
@@ -293,6 +311,7 @@ public class NewsController {
         response.put("isExclusive", article.isExclusive());
         response.put("isLocked", isLocked);
         response.put("freeTrialsLeft", freeTrialsLeft);
+        response.put("authorId", authorId);
 
         return ResponseEntity.ok(response);
     }
@@ -507,17 +526,47 @@ public class NewsController {
         if (content == null || content.trim().isEmpty() || isAgree == null) {
             return ResponseEntity.badRequest().body(Map.of("message", "Nội dung bình luận không hợp lệ!"));
         }
+
+        Optional<Article> articleOpt = articleRepository.findById(id);
+        if (articleOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Bài viết không tồn tại!"));
+        }
+        Article article = articleOpt.get();
+        
+        boolean hasAlreadyCommented = commentRepository.existsByArticleIdAndUserId(id, user.getId());
         
         Comment comment = new Comment(id, user.getId(), content, isAgree);
         Comment saved = commentRepository.save(comment);
         
-        // Cộng/trừ điểm nhuận bút cho tác giả ngay khi đăng luận điểm tranh luận
-        if (isAgree) {
-            user.setPoints(user.getPoints() + 1.0);
-        } else {
-            user.setPoints(user.getPoints() - 0.7);
+        // Cộng/trừ điểm nhuận bút cho tác giả bài viết ngay khi đăng luận điểm tranh luận
+        if (article.isLocal() && !"admin".equalsIgnoreCase(article.getSource())) {
+            Optional<User> authorOpt = userRepository.findByUsername(article.getSource());
+            if (authorOpt.isPresent()) {
+                User author = authorOpt.get();
+                boolean isAuthorCommenting = author.getId().equals(user.getId());
+                
+                // CHỈ TÍNH ĐIỂM khi: Không phải tác giả tự bình luận VÀ đây là bình luận đầu tiên của độc giả này trên bài viết
+                if (!isAuthorCommenting && !hasAlreadyCommented) {
+                    if (isAgree) {
+                        author.setPoints(Math.round((author.getPoints() + 1.0) * 10.0) / 10.0);
+                        userRepository.save(author);
+                        pointTransactionRepository.save(new PointTransaction(
+                                author.getId(),
+                                1.0,
+                                "Bài viết '" + article.getTitle() + "' nhận ý kiến đồng ý đầu tiên từ @" + user.getUsername()
+                        ));
+                    } else {
+                        author.setPoints(Math.round((author.getPoints() - 0.7) * 10.0) / 10.0);
+                        userRepository.save(author);
+                        pointTransactionRepository.save(new PointTransaction(
+                                author.getId(),
+                                -0.7,
+                                "Bài viết '" + article.getTitle() + "' nhận ý kiến phản đối đầu tiên từ @" + user.getUsername()
+                        ));
+                    }
+                }
+            }
         }
-        userRepository.save(user);
         
         return ResponseEntity.ok(Map.of(
                 "message", "Đã gửi bình luận tranh luận thành công!",
@@ -565,11 +614,22 @@ public class NewsController {
         if (authorOpt.isPresent()) {
             User author = authorOpt.get();
             if (comment.isAgree()) {
-                author.setPoints(author.getPoints() + 1.0);
+                author.setPoints(Math.round((author.getPoints() + 1.0) * 10.0) / 10.0);
+                userRepository.save(author);
+                pointTransactionRepository.save(new PointTransaction(
+                        author.getId(),
+                        1.0,
+                        "Luận điểm đồng ý của bạn được ủng hộ bởi @" + user.getUsername()
+                ));
             } else {
-                author.setPoints(author.getPoints() - 0.7);
+                author.setPoints(Math.round((author.getPoints() - 0.7) * 10.0) / 10.0);
+                userRepository.save(author);
+                pointTransactionRepository.save(new PointTransaction(
+                        author.getId(),
+                        -0.7,
+                        "Luận điểm phản đối/ý kiến khác của bạn được ủng hộ bởi @" + user.getUsername()
+                ));
             }
-            userRepository.save(author);
         }
         
         return ResponseEntity.ok(Map.of(
@@ -595,5 +655,28 @@ public class NewsController {
             ));
         }
         return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/members/{username}")
+    public ResponseEntity<?> getMemberProfile(@PathVariable String username) {
+        Optional<User> userOpt = userRepository.findByUsername(username);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(Map.of("message", "Không tìm thấy thành viên này!"));
+        }
+        User user = userOpt.get();
+
+        Map<String, Object> publicProfile = new HashMap<>();
+        publicProfile.put("id", user.getId());
+        publicProfile.put("username", user.getUsername());
+        publicProfile.put("role", user.getRole() != null ? user.getRole() : "USER");
+        publicProfile.put("points", user.getPoints());
+
+        List<Article> articles = articleRepository.findBySourceAndStatusOrderByPubDateDesc(user.getUsername(), 1);
+
+        return ResponseEntity.ok(Map.of(
+                "profile", publicProfile,
+                "articles", articles
+        ));
     }
 }
