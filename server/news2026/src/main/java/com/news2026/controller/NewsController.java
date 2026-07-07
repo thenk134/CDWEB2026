@@ -511,6 +511,14 @@ public class NewsController {
         Comment comment = new Comment(id, user.getId(), content, isAgree);
         Comment saved = commentRepository.save(comment);
         
+        // Cộng/trừ điểm nhuận bút cho tác giả ngay khi đăng luận điểm tranh luận
+        if (isAgree) {
+            user.setPoints(user.getPoints() + 1.0);
+        } else {
+            user.setPoints(user.getPoints() - 0.7);
+        }
+        userRepository.save(user);
+        
         return ResponseEntity.ok(Map.of(
                 "message", "Đã gửi bình luận tranh luận thành công!",
                 "comment", Map.of(
