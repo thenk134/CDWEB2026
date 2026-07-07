@@ -84,6 +84,7 @@ public class AdminNewsController {
         article.setCategory(articleData.getCategory() != null ? articleData.getCategory() : "thoi-su");
         article.setSource("admin");
         article.setLocal(true);
+        article.setExclusive(articleData.isExclusive());
         
         // Tạo link ngẫu nhiên cho bài viết nội bộ để đảm bảo tính duy nhất
         article.setLink("/news/local-" + UUID.randomUUID().toString());
@@ -125,6 +126,7 @@ public class AdminNewsController {
         if (articleData.getCategory() != null) {
             article.setCategory(articleData.getCategory());
         }
+        article.setExclusive(articleData.isExclusive());
 
         Article saved = articleRepository.save(article);
         return ResponseEntity.ok(saved);

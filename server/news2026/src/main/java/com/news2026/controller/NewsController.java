@@ -17,6 +17,14 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
+import com.news2026.entity.ReadLog;
+import com.news2026.entity.Comment;
+import com.news2026.entity.CommentVote;
+import com.news2026.repository.ReadLogRepository;
+import com.news2026.repository.CommentRepository;
+import com.news2026.repository.CommentVoteRepository;
+import com.news2026.repository.UserRepository;
+
 @RestController
 @RequestMapping("/api")
 public class NewsController {
@@ -26,6 +34,18 @@ public class NewsController {
 
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private ReadLogRepository readLogRepository;
+
+    @Autowired
+    private CommentRepository commentRepository;
+
+    @Autowired
+    private CommentVoteRepository commentVoteRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     // kiểm tra token và lấy thông tin User/Member đăng nhập
     private Optional<User> authenticateUser(String authHeader) {
@@ -87,138 +107,194 @@ public class NewsController {
     }
 
     @GetMapping("/news-detail")
-    public ResponseEntity<?> getNewsDetail(@RequestParam String url) {
+    public ResponseEntity<?> getNewsDetail(
+            @RequestParam String url,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
         if (url == null || url.trim().isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "Thiếu URL"));
         }
 
-        // 1. Kiểm tra xem bài viết đã lưu trong database chưa
+        Article article = null;
         Optional<Article> articleOpt = articleRepository.findByLink(url);
-        if (articleOpt.isPresent()) {
-            Article article = articleOpt.get();
-            // Nếu là bài viết nội bộ hoặc bài viết RSS đã được cào nội dung trước đó
-            if (article.getContent() != null && !article.getContent().trim().isEmpty()) {
-                return ResponseEntity.ok(Map.of(
-                        "id", article.getId(),
-                        "title", article.getTitle(),
-                        "description", article.getDescription() != null ? article.getDescription() : "",
-                        "content", article.getContent(),
-                        "image", article.getImage() != null ? article.getImage() : "",
-                        "link", article.getLink(),
-                        "date", article.getPubDate() != null ? article.getPubDate() : "",
-                        "source", article.getSource() != null ? article.getSource() : ""
-                ));
-            }
-        }
 
-        // 2. Nếu chưa có hoặc content rỗng (do RSS ban đầu chỉ có mô tả), thực hiện cào nội dung
-        try {
-            Document pageDoc = Jsoup.connect(url)
-                    .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
-                    .header("Accept-Language", "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7")
-                    .timeout(15000)
-                    .get();
+        if (articleOpt.isPresent() && articleOpt.get().getContent() != null && !articleOpt.get().getContent().trim().isEmpty()) {
+            article = articleOpt.get();
+        } else {
+            // 2. Nếu chưa có hoặc content rỗng (do RSS ban đầu chỉ có mô tả), thực hiện cào nội dung
+            try {
+                Document pageDoc = Jsoup.connect(url)
+                        .userAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                        .header("Accept-Language", "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7")
+                        .timeout(15000)
+                        .get();
 
-            pageDoc.select("script, style, iframe, .box-comment, .box-ads, .relative-news, footer, header, nav").remove();
+                pageDoc.select("script, style, iframe, .box-comment, .box-ads, .relative-news, footer, header, nav").remove();
 
-            Element titleEl = pageDoc.select("h1").first();
-            String title = titleEl != null ? titleEl.text().trim() : "";
+                Element titleEl = pageDoc.select("h1").first();
+                String title = titleEl != null ? titleEl.text().trim() : "";
 
-            Element descEl = pageDoc.select(".sapo, .description, .article-sapo, .sapo-detail, .article_sapo, h2").first();
-            String description = descEl != null ? descEl.text().trim() : "";
+                Element descEl = pageDoc.select(".sapo, .description, .article-sapo, .sapo-detail, .article_sapo, h2").first();
+                String description = descEl != null ? descEl.text().trim() : "";
 
-            String[] contentSelectors = {
-                    "article.fck_detail",     // VnExpress
-                    ".article-content",       // Lao Động
-                    "#main-detail-body",      // Tuổi Trẻ
-                    ".content-news-detail",   // Người Lao Động
-                    ".cms-body",              // Thanh Niên
-                    ".post-content",          // Chung
-                    "[itemprop=\"articleBody\"]" // Chuẩn SEO chung
-            };
+                String[] contentSelectors = {
+                        "article.fck_detail",     // VnExpress
+                        ".article-content",       // Lao Động
+                        "#main-detail-body",      // Tuổi Trẻ
+                        ".content-news-detail",   // Người Lao Động
+                        ".cms-body",              // Thanh Niên
+                        ".post-content",          // Chung
+                        "[itemprop=\"articleBody\"]" // Chuẩn SEO chung
+                };
 
-            Element mainContainer = null;
-            for (String selector : contentSelectors) {
-                Element el = pageDoc.selectFirst(selector);
-                if (el != null) {
-                    mainContainer = el;
-                    break;
+                Element mainContainer = null;
+                for (String selector : contentSelectors) {
+                    Element el = pageDoc.selectFirst(selector);
+                    if (el != null) {
+                        mainContainer = el;
+                        break;
+                    }
                 }
-            }
 
-            if (mainContainer == null) {
-                mainContainer = pageDoc.selectFirst("article");
-            }
-            if (mainContainer == null) {
-                mainContainer = pageDoc.body();
-            }
+                if (mainContainer == null) {
+                    mainContainer = pageDoc.selectFirst("article");
+                }
+                if (mainContainer == null) {
+                    mainContainer = pageDoc.body();
+                }
 
-            StringBuilder contentBuilder = new StringBuilder();
-            if (mainContainer != null) {
-                Elements children = mainContainer.select("p, img");
-                for (Element child : children) {
-                    if (child.normalName().equals("p")) {
-                        String pText = child.text().trim();
-                        if (pText.length() > 20) {
-                            contentBuilder.append(String.format("<p class=\"mb-5 text-gray-800 leading-relaxed text-lg\">%s</p>", child.html()));
-                        }
-                    } else if (child.normalName().equals("img")) {
-                        String src = child.attr("data-src");
-                        if (src.isEmpty()) src = child.attr("src");
-                        if (src.isEmpty()) src = child.attr("data-original");
-
-                        if (!src.isEmpty() && !src.startsWith("data:")) {
-                            if (src.startsWith("//")) {
-                                src = "https:" + src;
+                StringBuilder contentBuilder = new StringBuilder();
+                if (mainContainer != null) {
+                    Elements children = mainContainer.select("p, img");
+                    for (Element child : children) {
+                        if (child.normalName().equals("p")) {
+                            String pText = child.text().trim();
+                            if (pText.length() > 20) {
+                                contentBuilder.append(String.format("<p class=\"mb-5 text-gray-800 leading-relaxed text-lg\">%s</p>", child.html()));
                             }
-                            contentBuilder.append(String.format("<div class=\"my-6 text-center\"><img src=\"%s\" class=\"w-full rounded-lg shadow-md mx-auto\" alt=\"content image\" /></div>", src));
+                        } else if (child.normalName().equals("img")) {
+                            String src = child.attr("data-src");
+                            if (src.isEmpty()) src = child.attr("src");
+                            if (src.isEmpty()) src = child.attr("data-original");
+
+                            if (!src.isEmpty() && !src.startsWith("data:")) {
+                                if (src.startsWith("//")) {
+                                    src = "https:" + src;
+                                }
+                                contentBuilder.append(String.format("<div class=\"my-6 text-center\"><img src=\"%s\" class=\"w-full rounded-lg shadow-md mx-auto\" alt=\"content image\" /></div>", src));
+                            }
                         }
                     }
                 }
+
+                String content = contentBuilder.toString();
+                if (content.isEmpty()) {
+                    content = description.isEmpty() ? "Không thể tải được nội dung bài viết." : description;
+                }
+
+                // 3. Lưu nội dung vừa cào lại vào database để tăng tốc cho lần đọc sau
+                if (articleOpt.isPresent()) {
+                    article = articleOpt.get();
+                } else {
+                    article = new Article();
+                    article.setTitle(title.isEmpty() ? "Tin tức" : title);
+                    article.setDescription(description);
+                    article.setLink(url);
+                    article.setImage("https://via.placeholder.com/400x250");
+                    article.setPubDate(new Date().toString());
+                    article.setLocal(false);
+                    article.setCategory("tin-moi-nhat");
+                    article.setSource(url.contains("tuoitre.vn") ? "tuoitre" : "nld");
+                }
+                article.setContent(content);
+                article = articleRepository.save(article);
+
+            } catch (Exception e) {
+                e.printStackTrace();
+                if (articleOpt.isPresent()) {
+                    article = articleOpt.get();
+                } else {
+                    return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                            .body(Map.of("message", "Lỗi tải bài viết: " + e.getMessage()));
+                }
             }
-
-            String content = contentBuilder.toString();
-            if (content.isEmpty()) {
-                content = description.isEmpty() ? "Không thể tải được nội dung bài viết." : description;
-            }
-
-            // 3. Lưu nội dung vừa cào lại vào database để tăng tốc cho lần đọc sau
-            Article article;
-            if (articleOpt.isPresent()) {
-                article = articleOpt.get();
-            } else {
-                article = new Article();
-                article.setTitle(title.isEmpty() ? "Tin tức" : title);
-                article.setDescription(description);
-                article.setLink(url);
-                article.setImage("https://via.placeholder.com/400x250");
-                article.setPubDate(new Date().toString());
-                article.setLocal(false);
-                article.setCategory("tin-moi-nhat");
-                article.setSource(url.contains("tuoitre.vn") ? "tuoitre" : "nld");
-            }
-            article.setContent(content);
-            articleRepository.save(article);
-
-            return ResponseEntity.ok(Map.of(
-                    "id", article.getId(),
-                    "title", article.getTitle(),
-                    "description", article.getDescription() != null ? article.getDescription() : "",
-                    "content", content,
-                    "image", article.getImage() != null ? article.getImage() : "",
-                    "link", url,
-                    "date", article.getPubDate() != null ? article.getPubDate() : "",
-                    "source", article.getSource() != null ? article.getSource() : ""
-            ));
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.ok(Map.of(
-                    "title", articleOpt.map(Article::getTitle).orElse("Lỗi tải bài viết"),
-                    "description", articleOpt.map(Article::getDescription).orElse(""),
-                    "content", "Không thể lấy nội dung từ nguồn này: " + e.getMessage()
-            ));
         }
+
+        // Tăng lượt xem (views)
+        article.setViews(article.getViews() + 1);
+
+        // Cộng điểm thưởng nhuận bút cho tác giả hội viên
+        if (article.isLocal() && !"admin".equalsIgnoreCase(article.getSource())) {
+            Optional<User> authorOpt = userRepository.findByUsername(article.getSource());
+            if (authorOpt.isPresent()) {
+                User author = authorOpt.get();
+                if (article.getViews() % 10 == 0) {
+                    author.setPoints(author.getPoints() + 1);
+                    userRepository.save(author);
+                }
+            }
+        }
+
+        article = articleRepository.save(article);
+
+        // Logic Paywall: Kiểm duyệt quyền đọc tin
+        boolean isLocked = false;
+        long freeTrialsLeft = -1;
+
+        if (article.isExclusive()) {
+            Optional<User> userOpt = authenticateUser(authHeader);
+            if (userOpt.isPresent()) {
+                User user = userOpt.get();
+                if ("MEMBER".equalsIgnoreCase(user.getRole()) || "ADMIN".equalsIgnoreCase(user.getRole())) {
+                    isLocked = false;
+                    freeTrialsLeft = 999;
+                } else { // Tài khoản thường USER
+                    Calendar cal = Calendar.getInstance();
+                    cal.set(Calendar.DAY_OF_MONTH, 1);
+                    cal.set(Calendar.HOUR_OF_DAY, 0);
+                    cal.set(Calendar.MINUTE, 0);
+                    cal.set(Calendar.SECOND, 0);
+                    cal.set(Calendar.MILLISECOND, 0);
+                    Date startOfMonth = cal.getTime();
+
+                    long readCount = readLogRepository.countDistinctArticlesReadSince(user.getId(), startOfMonth);
+                    Optional<ReadLog> existingLog = readLogRepository.findByUserIdAndArticleId(user.getId(), article.getId());
+
+                    if (existingLog.isPresent()) {
+                        isLocked = false;
+                        freeTrialsLeft = 3 - readCount;
+                    } else {
+                        if (readCount < 3) {
+                            readLogRepository.save(new ReadLog(user.getId(), article.getId()));
+                            isLocked = false;
+                            freeTrialsLeft = 3 - (readCount + 1);
+                        } else {
+                            isLocked = true;
+                            freeTrialsLeft = 0;
+                        }
+                    }
+                }
+            } else {
+                // Khách chưa đăng nhập
+                isLocked = true;
+                freeTrialsLeft = -1;
+            }
+        }
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", article.getId());
+        response.put("title", article.getTitle());
+        response.put("description", article.getDescription() != null ? article.getDescription() : "");
+        response.put("content", isLocked ? "" : article.getContent());
+        response.put("image", article.getImage() != null ? article.getImage() : "");
+        response.put("link", article.getLink());
+        response.put("date", article.getPubDate() != null ? article.getPubDate() : "");
+        response.put("source", article.getSource() != null ? article.getSource() : "");
+        response.put("exclusive", article.isExclusive());
+        response.put("isExclusive", article.isExclusive());
+        response.put("isLocked", isLocked);
+        response.put("freeTrialsLeft", freeTrialsLeft);
+
+        return ResponseEntity.ok(response);
     }
     // Đăng bài viết mới dành cho Member (Ép cứng status = 0 và mục Quan điểm)
 
@@ -380,5 +456,132 @@ public class NewsController {
         // xóa khỏi Database thông qua JPA Repository
         articleRepository.delete(article);
         return ResponseEntity.ok(Map.of("message", "Đã gỡ bỏ bài viết thành công!"));
+    }
+
+    @GetMapping("/news/{id}/comments")
+    public ResponseEntity<?> getComments(@PathVariable Long id) {
+        List<Comment> allComments = commentRepository.findByArticleIdOrderByUpvotesDescCreatedDateDesc(id);
+        List<Map<String, Object>> agree = new ArrayList<>();
+        List<Map<String, Object>> disagree = new ArrayList<>();
+        
+        for (Comment c : allComments) {
+            Map<String, Object> cMap = new HashMap<>();
+            cMap.put("id", c.getId());
+            cMap.put("content", c.getContent());
+            cMap.put("upvotes", c.getUpvotes());
+            cMap.put("createdDate", c.getCreatedDate());
+            cMap.put("isAgree", c.isAgree());
+            cMap.put("username", c.getUser() != null ? c.getUser().getUsername() : "Ẩn danh");
+            cMap.put("role", c.getUser() != null ? c.getUser().getRole() : "USER");
+            if (c.isAgree()) {
+                agree.add(cMap);
+            } else {
+                disagree.add(cMap);
+            }
+        }
+        
+        return ResponseEntity.ok(Map.of(
+                "agree", agree,
+                "disagree", disagree
+        ));
+    }
+
+    @PostMapping("/news/{id}/comments")
+    public ResponseEntity<?> postComment(
+            @PathVariable Long id,
+            @RequestHeader(value = "Authorization", required = false) String authHeader,
+            @RequestBody Map<String, Object> body) {
+        
+        Optional<User> userOpt = authenticateUser(authHeader);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Bạn cần đăng nhập để tham gia bình luận!"));
+        }
+        User user = userOpt.get();
+        if (!"MEMBER".equalsIgnoreCase(user.getRole()) && !"ADMIN".equalsIgnoreCase(user.getRole())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Chức năng tranh luận chỉ dành riêng cho Hội viên!"));
+        }
+        
+        String content = (String) body.get("content");
+        Boolean isAgree = (Boolean) body.get("isAgree");
+        
+        if (content == null || content.trim().isEmpty() || isAgree == null) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Nội dung bình luận không hợp lệ!"));
+        }
+        
+        Comment comment = new Comment(id, user.getId(), content, isAgree);
+        Comment saved = commentRepository.save(comment);
+        
+        return ResponseEntity.ok(Map.of(
+                "message", "Đã gửi bình luận tranh luận thành công!",
+                "comment", Map.of(
+                        "id", saved.getId(),
+                        "content", saved.getContent(),
+                        "upvotes", saved.getUpvotes(),
+                        "createdDate", saved.getCreatedDate(),
+                        "isAgree", saved.isAgree(),
+                        "username", user.getUsername(),
+                        "role", user.getRole()
+                )
+        ));
+    }
+
+    @PostMapping("/comments/{id}/vote")
+    public ResponseEntity<?> voteComment(
+            @PathVariable Long id,
+            @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        
+        Optional<User> userOpt = authenticateUser(authHeader);
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Bạn cần đăng nhập để ủng hộ lập luận này!"));
+        }
+        User user = userOpt.get();
+        
+        Optional<Comment> commentOpt = commentRepository.findById(id);
+        if (commentOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("message", "Bình luận không tồn tại!"));
+        }
+        
+        Comment comment = commentOpt.get();
+        Optional<CommentVote> existingVote = commentVoteRepository.findByCommentIdAndUserId(comment.getId(), user.getId());
+        
+        if (existingVote.isPresent()) {
+            return ResponseEntity.badRequest().body(Map.of("message", "Bạn đã ủng hộ luận điểm này rồi!"));
+        }
+        
+        commentVoteRepository.save(new CommentVote(comment.getId(), user.getId()));
+        comment.setUpvotes(comment.getUpvotes() + 1);
+        commentRepository.save(comment);
+        
+        // Cộng điểm thưởng nhuận bút cho tác giả bình luận
+        Optional<User> authorOpt = userRepository.findById(comment.getUserId());
+        if (authorOpt.isPresent()) {
+            User author = authorOpt.get();
+            author.setPoints(author.getPoints() + 1);
+            userRepository.save(author);
+        }
+        
+        return ResponseEntity.ok(Map.of(
+                "message", "Đã ủng hộ luận điểm thành công!",
+                "upvotes", comment.getUpvotes()
+        ));
+    }
+
+    @GetMapping("/news/leaderboard")
+    public ResponseEntity<?> getLeaderboard() {
+        List<User> allUsers = userRepository.findAll();
+        List<User> members = allUsers.stream()
+                .filter(u -> "MEMBER".equalsIgnoreCase(u.getRole()))
+                .sorted((u1, u2) -> Integer.compare(u2.getPoints(), u1.getPoints()))
+                .limit(5)
+                .toList();
+                
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (User u : members) {
+            result.add(Map.of(
+                    "username", u.getUsername(),
+                    "points", u.getPoints()
+            ));
+        }
+        return ResponseEntity.ok(result);
     }
 }

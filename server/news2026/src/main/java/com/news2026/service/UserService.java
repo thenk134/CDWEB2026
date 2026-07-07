@@ -85,4 +85,13 @@ public class UserService {
         user.setResetToken(null);
         userRepository.save(user);
     }
+
+    public User save(User user) {
+        return userRepository.save(user);
+    }
+
+    public User upgradeToMember(User user) {
+        user.setRole("MEMBER");
+        return userRepository.save(user);
+    }
 }

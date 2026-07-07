@@ -10,6 +10,9 @@
     >
       📌
     </button>
+    <div v-if="news.exclusive || news.isExclusive" class="absolute top-2 left-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-black text-[10px] px-2.5 py-1 rounded-full uppercase shadow-md tracking-wider z-10">
+      ⭐ Hội Viên
+    </div>
     <img 
       :src="news.image" 
       :alt="news.title" 

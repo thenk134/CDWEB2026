@@ -40,6 +40,12 @@ public class Article {
     @Column(nullable = false)
     private int status = 1;
 
+    @Column(name = "is_exclusive", nullable = false, columnDefinition = "boolean default false")
+    private boolean isExclusive = false;
+
+    @Column(nullable = false, columnDefinition = "integer default 0")
+    private int views = 0;
+
     // Getters and Setters
     public Long getId() {
         return id;
@@ -127,5 +133,21 @@ public class Article {
 
     public void setStatus(int status) {
         this.status = status;
+    }
+
+    public boolean isExclusive() {
+        return isExclusive;
+    }
+
+    public void setExclusive(boolean exclusive) {
+        isExclusive = exclusive;
+    }
+
+    public int getViews() {
+        return views;
+    }
+
+    public void setViews(int views) {
+        this.views = views;
     }
 }

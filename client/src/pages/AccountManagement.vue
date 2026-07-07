@@ -5,9 +5,12 @@
         {{ username.charAt(0).toUpperCase() }}
       </div>
       <h2 class="text-2xl font-black text-gray-800 mb-1 tracking-tight">{{ username }}</h2>
-      <p class="inline-block bg-gray-50 border border-gray-200 text-gray-600 px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+      <p class="inline-block bg-gray-50 border border-gray-200 text-gray-650 px-4 py-1 rounded-full text-xs font-bold uppercase tracking-wider mb-2">
         Quyền hạn: <span :class="roleColorClass">{{ role }}</span>
       </p>
+      <div v-if="role === 'MEMBER'" class="mt-2 text-sm text-gray-500 font-bold">
+        ✍️ Điểm nhuận bút: <span class="text-amber-500 text-base font-black">{{ points }}</span> điểm
+      </div>
     </div>
 
     <div class="flex flex-col gap-4">
@@ -49,19 +52,36 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { toast } from '../utils/toast'
 
 const router = useRouter()
 
 // Lấy thông tin user đã lưu trong localStorage từ lúc Đăng nhập thành công
 const username = ref(localStorage.getItem('username') || 'Người dùng')
 const role = ref(localStorage.getItem('user_role') || 'USER')
+const points = ref(0)
 
 // Tự động đá người dùng chưa đăng nhập về trang Login bảo vệ dữ liệu công khai
 onMounted(() => {
   const token = localStorage.getItem('token')
   if (!token) {
     router.push('/login')
+    return
   }
+
+  fetch("http://localhost:5000/api/auth/profile", {
+    headers: {
+      "Authorization": `Bearer ${token}`
+    }
+  })
+    .then(res => res.json())
+    .then(data => {
+      role.value = data.role
+      points.value = data.points || 0
+      localStorage.setItem("user_role", data.role)
+      localStorage.setItem("user_points", data.points || 0)
+    })
+    .catch(err => console.error("Lỗi tải profile:", err))
 })
 
 // Đổi màu chữ theo Role cho sinh động
@@ -83,6 +103,29 @@ const goToMemberPosts = () => {
 }
 // Hàm giả định yêu cầu nâng cấp
 const upgradeAccount = () => {
-  alert("Thêm thanh toán sau!")
+  if (!confirm("Bạn có chắc chắn muốn đăng ký và nâng cấp lên tài khoản Hội viên (MEMBER)?")) {
+    return
+  }
+  const token = localStorage.getItem("token")
+  fetch("http://localhost:5000/api/auth/upgrade", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${token}`
+    }
+  })
+    .then(res => {
+      if (!res.ok) throw new Error("Nâng cấp thất bại!")
+      return res.json()
+    })
+    .then(data => {
+      localStorage.setItem("user_role", data.role)
+      localStorage.setItem("user_points", data.points || 0)
+      role.value = data.role
+      points.value = data.points || 0
+      toast.success(data.message || "Nâng cấp Hội viên thành công!")
+    })
+    .catch(err => {
+      toast.error(err.message)
+    })
 }
 </script>

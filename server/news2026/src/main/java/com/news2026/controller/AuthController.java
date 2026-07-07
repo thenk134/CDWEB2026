@@ -60,7 +60,8 @@ public class AuthController {
                             "id", user.getId(),
                             "username", user.getUsername(),
                             "email", user.getEmail(),
-                            "role", user.getRole()
+                            "role", user.getRole(),
+                            "points", user.getPoints()
                     )
             ));
         } catch (Exception e) {
@@ -86,7 +87,33 @@ public class AuthController {
                 "id", user.getId(),
                 "username", user.getUsername(),
                 "email", user.getEmail(),
-                "role", user.getRole()
+                "role", user.getRole(),
+                "points", user.getPoints()
+        ));
+    }
+
+    @PostMapping("/upgrade")
+    public ResponseEntity<?> upgrade(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Thiếu hoặc sai định dạng token!"));
+        }
+
+        String token = authHeader.substring(7);
+        Optional<User> userOpt = userService.getUserByToken(token);
+
+        if (userOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Phiên làm việc hết hạn hoặc token không hợp lệ!"));
+        }
+
+        User user = userOpt.get();
+        if ("USER".equalsIgnoreCase(user.getRole())) {
+            userService.upgradeToMember(user);
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "message", "Nâng cấp tài khoản Hội viên thành công!",
+                "role", user.getRole(),
+                "points", user.getPoints()
         ));
     }
 
