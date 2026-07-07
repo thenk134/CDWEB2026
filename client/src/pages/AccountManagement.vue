@@ -46,6 +46,57 @@
         🚪 Đăng xuất tài khoản
       </button>
     </div>
+
+    <!-- Modal Thanh Toán PayPal -->
+    <div v-if="showPaymentModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in">
+      <div class="bg-white rounded-3xl border border-gray-100 shadow-2xl p-6 md:p-8 max-w-md w-full relative transform scale-100 transition-all">
+        <!-- Nút Đóng -->
+        <button 
+          @click="closePaymentModal" 
+          class="absolute top-4 right-4 text-gray-400 hover:text-gray-650 bg-gray-100 hover:bg-gray-200 w-8 h-8 rounded-full flex items-center justify-center font-bold text-lg cursor-pointer border-none"
+        >
+          ✕
+        </button>
+
+        <div class="text-center">
+          <span class="inline-block bg-amber-50 text-amber-600 font-black text-[10px] px-3 py-1 rounded-full uppercase shadow-sm tracking-wider mb-2">
+            ⭐ Nâng Cấp Hội Viên
+          </span>
+          <h3 class="text-xl font-black text-gray-900 mb-2">Thanh Toán Qua PayPal</h3>
+          <p class="text-xs text-gray-500 mb-6">Mức phí nâng cấp gói: <span class="font-bold text-amber-600 text-sm">$2.00 USD</span> (~50.000đ)</p>
+          
+          <!-- PayPal Button Container -->
+          <div class="my-6 min-h-[150px] flex items-center justify-center bg-gray-50 p-4 rounded-2xl border border-dashed border-gray-200">
+            <div id="paypal-button-container" class="w-full">
+              <!-- Nút PayPal sẽ tự động được render ở đây bởi SDK -->
+              <div class="text-sm text-gray-400 animate-pulse">Đang tải cổng thanh toán PayPal...</div>
+            </div>
+          </div>
+
+          <!-- Hẹn giờ / Loading -->
+          <div class="flex items-center justify-center gap-2 mb-6">
+            <div class="w-2 h-2 bg-amber-500 rounded-full animate-ping"></div>
+            <span class="text-xs font-bold text-gray-500">Đang chờ thanh toán... Hết hạn sau: <span class="font-mono text-red-650 font-black">{{ formatTimer }}</span></span>
+          </div>
+
+          <div class="space-y-3">
+            <!-- Nút giả lập thanh toán -->
+            <button 
+              @click="simulatePaymentSuccess"
+              class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-sm py-3 rounded-xl shadow-md transition cursor-pointer uppercase tracking-wider border-none"
+            >
+              🚀 Giả lập thanh toán PayPal thành công
+            </button>
+            <button 
+              @click="closePaymentModal" 
+              class="w-full bg-white hover:bg-gray-50 text-gray-500 hover:text-gray-700 border border-gray-250 py-2.5 rounded-xl font-bold text-xs transition cursor-pointer"
+            >
+              Hủy bỏ thanh toán
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </main>
 </template>
 
@@ -101,31 +152,153 @@ const handleLogout = () => {
 const goToMemberPosts = () => {
   router.push('/my-posts')
 }
-// Hàm giả định yêu cầu nâng cấp
-const upgradeAccount = () => {
-  if (!confirm("Bạn có chắc chắn muốn đăng ký và nâng cấp lên tài khoản Hội viên (MEMBER)?")) {
-    return
+// Trạng thái Thanh Toán PayPal
+const showPaymentModal = ref(false)
+const currentOrder = ref({
+  orderId: null,
+  amount: 2.00,
+  description: "",
+  status: "PENDING"
+})
+const countdownSeconds = ref(300) // 5 minutes
+let timerInterval = null
+let statusPollInterval = null
+
+const formatTimer = computed(() => {
+  const m = Math.floor(countdownSeconds.value / 60)
+  const s = countdownSeconds.value % 60
+  return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+})
+
+const closePaymentModal = () => {
+  showPaymentModal.value = false
+  clearInterval(timerInterval)
+  clearInterval(statusPollInterval)
+}
+
+// Tải script SDK PayPal động
+const loadPayPalSdk = () => {
+  return new Promise((resolve) => {
+    if (window.paypal) {
+      resolve()
+      return
+    }
+    const script = document.createElement("script")
+    script.src = "https://www.paypal.com/sdk/js?client-id=test"
+    script.onload = () => resolve()
+    document.head.appendChild(script)
+  })
+}
+
+// Render nút PayPal Smart Payment
+const renderPayPalButtons = (order) => {
+  if (!window.paypal) return
+  
+  const container = document.getElementById("paypal-button-container")
+  if (container) {
+    container.innerHTML = ""
   }
+
+  window.paypal.Buttons({
+    createOrder: function(data, actions) {
+      return actions.order.create({
+        purchase_units: [{
+          amount: {
+            value: order.amount.toString()
+          },
+          description: order.description
+        }]
+      });
+    },
+    onApprove: function(data, actions) {
+      return actions.order.capture().then(function(details) {
+        simulatePaymentSuccess()
+      });
+    },
+    onError: function(err) {
+      console.error("Lỗi PayPal:", err)
+      toast.error("Giao dịch PayPal gặp lỗi!")
+    }
+  }).render('#paypal-button-container')
+}
+
+const upgradeAccount = () => {
   const token = localStorage.getItem("token")
-  fetch("http://localhost:5000/api/auth/upgrade", {
+  if (!token) return
+
+  fetch("http://localhost:5000/api/payment/create", {
     method: "POST",
     headers: {
       "Authorization": `Bearer ${token}`
     }
   })
     .then(res => {
-      if (!res.ok) throw new Error("Nâng cấp thất bại!")
+      if (!res.ok) throw new Error("Không thể khởi tạo giao dịch!")
       return res.json()
     })
-    .then(data => {
-      localStorage.setItem("user_role", data.role)
-      localStorage.setItem("user_points", data.points || 0)
-      role.value = data.role
-      points.value = data.points || 0
-      toast.success(data.message || "Nâng cấp Hội viên thành công!")
+    .then(async (data) => {
+      currentOrder.value = data
+      showPaymentModal.value = true
+      countdownSeconds.value = 300 // Reset timer
+      
+      // Khởi động đếm ngược
+      clearInterval(timerInterval)
+      timerInterval = setInterval(() => {
+        if (countdownSeconds.value > 0) {
+          countdownSeconds.value--
+        } else {
+          closePaymentModal()
+          toast.warning("Giao dịch hết hạn thanh toán!")
+        }
+      }, 1000)
+
+      // Bắt đầu Polling kiểm tra trạng thái đơn hàng mỗi 3 giây
+      clearInterval(statusPollInterval)
+      statusPollInterval = setInterval(() => {
+        fetch(`http://localhost:5000/api/payment/status/${data.orderId}`)
+          .then(res => res.json())
+          .then(statusData => {
+            if (statusData.status === "PAID") {
+              closePaymentModal()
+              toast.success("Thanh toán thành công! Tài khoản đã nâng cấp thành Hội viên.")
+              localStorage.setItem("user_role", "MEMBER")
+              role.value = "MEMBER"
+              points.value = 0
+            }
+          })
+          .catch(err => console.error("Lỗi kiểm tra trạng thái đơn hàng:", err))
+      }, 3000)
+
+      // Tải và hiển thị nút PayPal
+      await loadPayPalSdk()
+      setTimeout(() => {
+        renderPayPalButtons(data)
+      }, 100)
     })
     .catch(err => {
       toast.error(err.message)
+    })
+}
+
+const simulatePaymentSuccess = () => {
+  if (!currentOrder.value.orderId) return
+  
+  fetch(`http://localhost:5000/api/payment/simulate-success/${currentOrder.value.orderId}`, {
+    method: "POST"
+  })
+    .then(res => {
+      if (!res.ok) throw new Error("Giả lập lỗi!")
+      return res.json()
+    })
+    .then(data => {
+      closePaymentModal()
+      toast.success("Giả lập thành công! Tài khoản của bạn đã được nâng cấp thành Hội viên.")
+      localStorage.setItem("user_role", "MEMBER")
+      role.value = "MEMBER"
+      points.value = 0
+    })
+    .catch(err => {
+      toast.error("Không thể giả lập thanh toán!")
     })
 }
 </script>
