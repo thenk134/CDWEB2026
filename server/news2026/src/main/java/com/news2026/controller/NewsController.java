@@ -16,6 +16,9 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 
 import com.news2026.entity.ReadLog;
 import com.news2026.entity.Comment;
@@ -96,18 +99,63 @@ public class NewsController {
         }
     }
 
+    // Tìm kiếm có phân trang (hỗ trợ lọc theo chêyên mục)
     @GetMapping("/news/search")
-    public ResponseEntity<?> searchNews(@RequestParam String query) {
+    public ResponseEntity<?> searchNews(
+            @RequestParam String query,
+            @RequestParam(defaultValue = "") String category,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size) {
         try {
             if (query == null || query.trim().isEmpty()) {
-                return ResponseEntity.ok(Collections.emptyList());
+                return ResponseEntity.ok(Map.of(
+                    "content", Collections.emptyList(),
+                    "totalElements", 0,
+                    "totalPages", 0,
+                    "currentPage", 0
+                ));
             }
-            List<Article> articles = articleRepository.searchPublicArticles(query, 1);
-            return ResponseEntity.ok(articles);
+            Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(size, 50));
+            Page<Article> result;
+            if (category != null && !category.trim().isEmpty()) {
+                result = articleRepository.searchByCategoryWithPaging(query.trim(), category.trim(), pageable);
+            } else {
+                result = articleRepository.searchWithPaging(query.trim(), pageable);
+            }
+            return ResponseEntity.ok(Map.of(
+                "content",       result.getContent(),
+                "totalElements", result.getTotalElements(),
+                "totalPages",    result.getTotalPages(),
+                "currentPage",   result.getNumber()
+            ));
         } catch (Exception e) {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("message", "Lỗi tìm kiếm: " + e.getMessage()));
+        }
+    }
+
+    // Lấy tin theo chuyên mục có phân trang (path riêng biệt, tránh xung đột với /news/{source}/{category})
+    @GetMapping("/news/paged/{slug}")
+    public ResponseEntity<?> getCategoryPaged(
+            @PathVariable String slug,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "12") int size) {
+        try {
+            Pageable pageable = PageRequest.of(Math.max(page, 0), Math.min(size, 50));
+            Page<Article> result = articleRepository.findByCategoryAndStatusOrderByIdDesc(slug, 1, pageable);
+            return ResponseEntity.ok(Map.of(
+                "content",       result.getContent(),
+                "totalElements", result.getTotalElements(),
+                "totalPages",    result.getTotalPages(),
+                "currentPage",   result.getNumber()
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.ok(Map.of(
+                "content", Collections.emptyList(),
+                "totalElements", 0, "totalPages", 0, "currentPage", 0
+            ));
         }
     }
 

@@ -195,11 +195,12 @@ const onSearchInput = () => {
 
   loadingSuggestions.value = true
   debounceTimeout = setTimeout(() => {
-    fetch(`http://localhost:5000/api/news/search?query=${encodeURIComponent(keyword.value.trim())}`)
+    fetch(`http://localhost:5000/api/news/search?query=${encodeURIComponent(keyword.value.trim())}&size=5`)
       .then(res => res.json())
       .then(data => {
-        // Lấy tối đa 5 bài báo làm gợi ý
-        suggestions.value = Array.isArray(data) ? data.slice(0, 5) : []
+        // Backend trả về { content: [...], totalPages, ... } sau khi nâng cấp phân trang
+        const list = Array.isArray(data.content) ? data.content : (Array.isArray(data) ? data : [])
+        suggestions.value = list.slice(0, 5)
       })
       .catch(err => {
         console.error("Lỗi gợi ý tìm kiếm:", err)

@@ -878,8 +878,7 @@ const switchMenu = (menuName) => {
   activeMenu.value = menuName
   searchTerm.value = "" // clear filters
   if (menuName === 'revenue') {
-    fetchRevenueStats()
-    fetchRevenueDetails()
+    fetchRevenueAll()
   } else if (menuName === 'payouts') {
     fetchAllPayoutRequests()
   } else if (menuName === 'member-posts') {
@@ -952,29 +951,34 @@ const fetchAllPayoutRequests = async () => {
   }
 }
 
-const fetchRevenueStats = async () => {
+const fetchRevenueAll = async () => {
   const token = localStorage.getItem("token")
   try {
     const res = await fetch("http://localhost:5000/api/admin/revenue", {
       headers: { "Authorization": `Bearer ${token}` }
     })
-    revenueStats.value = await res.json()
+    if (!res.ok) throw new Error("Lỗi tải dữ liệu doanh thu")
+    const data = await res.json()
+    // Populate stats
+    revenueStats.value = {
+      totalVipSales:    typeof data.totalVipSales    === 'number' ? data.totalVipSales    : 0,
+      totalDonations:   typeof data.totalDonations   === 'number' ? data.totalDonations   : 0,
+      totalPayoutMoney: typeof data.totalPayoutMoney === 'number' ? data.totalPayoutMoney : 0,
+      vipCount:         typeof data.vipCount         === 'number' ? data.vipCount         : 0,
+      donationCount:    typeof data.donationCount    === 'number' ? data.donationCount    : 0,
+      payoutCount:      typeof data.payoutCount      === 'number' ? data.payoutCount      : 0
+    }
+    // Populate details w/ guard
+    revenueDetails.value = {
+      vipOrders: Array.isArray(data.vipOrders)  ? data.vipOrders  : [],
+      donations: Array.isArray(data.donations)  ? data.donations  : [],
+      payouts:   Array.isArray(data.payouts)    ? data.payouts    : []
+    }
   } catch (err) {
-    console.error(err)
+    console.error('fetchRevenueAll error:', err)
   }
 }
 
-const fetchRevenueDetails = async () => {
-  const token = localStorage.getItem("token")
-  try {
-    const res = await fetch("http://localhost:5000/api/admin/revenue/details", {
-      headers: { "Authorization": `Bearer ${token}` }
-    })
-    revenueDetails.value = await res.json()
-  } catch (err) {
-    console.error(err)
-  }
-}
 
 const handleApprovePayout = async (id) => {
   if (!confirm("Xác nhận phê duyệt và chuyển tiền nhuận bút cho yêu cầu này?")) return
@@ -985,9 +989,9 @@ const handleApprovePayout = async (id) => {
       headers: { "Authorization": `Bearer ${token}` }
     })
     if (!res.ok) throw new Error("Duyệt thất bại.")
-    toast.success("Đã duyệt yêu cầu rút tiền thành công!")
+      toast.success("Đã duyệt yêu cầu rút tiền thành công!")
     fetchAllPayoutRequests()
-    fetchRevenueStats()
+    fetchRevenueAll()
   } catch (err) {
     toast.error(err.message)
   }
@@ -1120,8 +1124,7 @@ onMounted(() => {
   fetchPendingPosts()
   fetchUsers()
   fetchAllPayoutRequests()
-  fetchRevenueStats()
-  fetchRevenueDetails()
+  fetchRevenueAll()
 })
 </script>
 

@@ -278,42 +278,9 @@ public class PointsController {
         return ResponseEntity.ok(Map.of("message", "Đã từ chối yêu cầu rút tiền và hoàn lại điểm!"));
     }
 
-    // 8. Admin: Thống kê doanh thu, rút tiền và ủng hộ
+    // 8. Admin: Thống kê doanh thu tổng hợp (gộp stats + details vào 1 lần fetch)
     @GetMapping("/admin/revenue")
-    public ResponseEntity<?> getRevenueStats(@RequestHeader(value = "Authorization", required = false) String authHeader) {
-        Optional<User> userOpt = authenticateUser(authHeader);
-        if (userOpt.isEmpty() || !"ADMIN".equalsIgnoreCase(userOpt.get().getRole())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Quyền truy cập bị từ chối!"));
-        }
-
-        // Doanh thu từ thanh toán nâng cấp VIP
-        List<PaymentOrder> paidOrders = paymentOrderRepository.findAll().stream()
-                .filter(o -> "PAID".equals(o.getStatus()))
-                .collect(Collectors.toList());
-        double totalVipSales = paidOrders.stream().mapToDouble(PaymentOrder::getAmount).sum();
-
-        // Doanh thu ủng hộ (Donation)
-        List<Donation> donations = donationRepository.findAll();
-        double totalDonations = donations.stream().mapToDouble(Donation::getAmount).sum();
-
-        // Tổng chi trả tiền nhuận bút đã duyệt thành công
-        List<PayoutRequest> approvedPayouts = payoutRequestRepository.findAll().stream()
-                .filter(p -> p.getStatus() == 1)
-                .collect(Collectors.toList());
-        double totalPayoutMoney = approvedPayouts.stream().mapToDouble(PayoutRequest::getAmountMoney).sum();
-
-        return ResponseEntity.ok(Map.of(
-                "totalVipSales", totalVipSales,
-                "totalDonations", totalDonations,
-                "totalPayoutMoney", totalPayoutMoney,
-                "vipCount", paidOrders.size(),
-                "donationCount", donations.size(),
-                "payoutCount", approvedPayouts.size()
-        ));
-    }
-
-    @GetMapping("/admin/revenue/details")
-    public ResponseEntity<?> getRevenueDetails(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+    public ResponseEntity<?> getRevenueFull(@RequestHeader(value = "Authorization", required = false) String authHeader) {
         Optional<User> userOpt = authenticateUser(authHeader);
         if (userOpt.isEmpty() || !"ADMIN".equalsIgnoreCase(userOpt.get().getRole())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Quyền truy cập bị từ chối!"));
@@ -322,60 +289,90 @@ public class PointsController {
         Map<Long, String> userIdToUsername = userRepository.findAll().stream()
                 .collect(Collectors.toMap(User::getId, User::getUsername, (u1, u2) -> u1));
 
-        List<Map<String, Object>> paidOrdersMapped = paymentOrderRepository.findAll().stream()
+        // ── VIP Orders ──────────────────────────────────────────────────────────
+        List<PaymentOrder> paidOrders = paymentOrderRepository.findAll().stream()
                 .filter(o -> "PAID".equals(o.getStatus()))
-                .map(o -> {
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("id", o.getId());
-                    m.put("userId", o.getUserId());
-                    m.put("username", userIdToUsername.getOrDefault(o.getUserId(), "Unknown"));
-                    m.put("amount", o.getAmount());
-                    m.put("description", o.getDescription());
-                    m.put("createdAt", o.getCreatedAt());
-                    return m;
-                })
-                .sorted((a, b) -> ((Date) b.get("createdAt")).compareTo((Date) a.get("createdAt")))
+                .sorted(Comparator.comparingLong((PaymentOrder o) -> o.getCreatedAt() != null ? o.getCreatedAt().getTime() : 0).reversed())
                 .collect(Collectors.toList());
 
-        List<Map<String, Object>> donationsMapped = donationRepository.findAll().stream()
-                .map(d -> {
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("id", d.getId());
-                    m.put("donorId", d.getDonorId());
-                    m.put("donorName", d.getDonorName() != null ? d.getDonorName() : "Độc giả ẩn danh");
-                    m.put("receiverId", d.getReceiverId());
-                    m.put("receiverName", d.getReceiverId() != null ? userIdToUsername.getOrDefault(d.getReceiverId(), "Unknown") : "Tòa soạn");
-                    m.put("amount", d.getAmount());
-                    m.put("message", d.getMessage());
-                    m.put("createdAt", d.getCreatedAt());
-                    return m;
-                })
-                .sorted((a, b) -> ((Date) b.get("createdAt")).compareTo((Date) a.get("createdAt")))
+        double totalVipSales = paidOrders.stream().mapToDouble(PaymentOrder::getAmount).sum();
+
+        List<Map<String, Object>> vipOrdersMapped = paidOrders.stream().map(o -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", o.getId());
+            m.put("userId", o.getUserId());
+            m.put("username", userIdToUsername.getOrDefault(o.getUserId(), "Unknown"));
+            m.put("amount", o.getAmount());
+            m.put("description", o.getDescription());
+            m.put("createdAt", o.getCreatedAt());
+            return m;
+        }).collect(Collectors.toList());
+
+        // ── Donations ────────────────────────────────────────────────────────────
+        List<Donation> allDonations = donationRepository.findAll().stream()
+                .sorted(Comparator.comparingLong((Donation d) -> d.getCreatedAt() != null ? d.getCreatedAt().getTime() : 0).reversed())
                 .collect(Collectors.toList());
 
-        List<Map<String, Object>> payoutsMapped = payoutRequestRepository.findAll().stream()
+        double totalDonations = allDonations.stream().mapToDouble(Donation::getAmount).sum();
+
+        List<Map<String, Object>> donationsMapped = allDonations.stream().map(d -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", d.getId());
+            m.put("donorId", d.getDonorId());
+            m.put("donorName", d.getDonorName() != null ? d.getDonorName() : "Độc giả ẩn danh");
+            m.put("receiverId", d.getReceiverId());
+            m.put("receiverName", d.getReceiverId() != null
+                    ? userIdToUsername.getOrDefault(d.getReceiverId(), "Unknown") : "Tòa soạn");
+            m.put("amount", d.getAmount());
+            m.put("message", d.getMessage());
+            m.put("createdAt", d.getCreatedAt());
+            return m;
+        }).collect(Collectors.toList());
+
+        // ── Approved Payouts ─────────────────────────────────────────────────────
+        List<PayoutRequest> approvedPayouts = payoutRequestRepository.findAll().stream()
                 .filter(p -> p.getStatus() == 1)
-                .map(p -> {
-                    Map<String, Object> m = new HashMap<>();
-                    m.put("id", p.getId());
-                    m.put("userId", p.getUserId());
-                    m.put("username", userIdToUsername.getOrDefault(p.getUserId(), "Unknown"));
-                    m.put("points", p.getPoints());
-                    m.put("amountMoney", p.getAmountMoney());
-                    m.put("payoutMethod", p.getPayoutMethod());
-                    m.put("payoutInfo", p.getPayoutInfo());
-                    m.put("createdAt", p.getCreatedAt());
-                    m.put("resolvedAt", p.getResolvedAt());
-                    return m;
-                })
-                .sorted((a, b) -> ((Date) b.get("createdAt")).compareTo((Date) a.get("createdAt")))
+                .sorted(Comparator.comparing((PayoutRequest p) ->
+                        p.getCreatedAt() != null ? p.getCreatedAt() : java.time.LocalDateTime.MIN).reversed())
                 .collect(Collectors.toList());
 
-        return ResponseEntity.ok(Map.of(
-                "vipOrders", paidOrdersMapped,
-                "donations", donationsMapped,
-                "payouts", payoutsMapped
-        ));
+        double totalPayoutMoney = approvedPayouts.stream().mapToDouble(PayoutRequest::getAmountMoney).sum();
+
+        List<Map<String, Object>> payoutsMapped = approvedPayouts.stream().map(p -> {
+            Map<String, Object> m = new HashMap<>();
+            m.put("id", p.getId());
+            m.put("userId", p.getUserId());
+            m.put("username", userIdToUsername.getOrDefault(p.getUserId(), "Unknown"));
+            m.put("points", p.getPoints());
+            m.put("amountMoney", p.getAmountMoney());
+            m.put("payoutMethod", p.getPayoutMethod());
+            m.put("payoutInfo", p.getPayoutInfo());
+            m.put("createdAt", p.getCreatedAt());
+            m.put("resolvedAt", p.getResolvedAt());
+            return m;
+        }).collect(Collectors.toList());
+
+        // ── Tổng hợp response ─────────────────────────────────────────────────────
+        Map<String, Object> response = new HashMap<>();
+        // Stats
+        response.put("totalVipSales", totalVipSales);
+        response.put("totalDonations", totalDonations);
+        response.put("totalPayoutMoney", totalPayoutMoney);
+        response.put("vipCount", paidOrders.size());
+        response.put("donationCount", allDonations.size());
+        response.put("payoutCount", approvedPayouts.size());
+        // Details
+        response.put("vipOrders", vipOrdersMapped);
+        response.put("donations", donationsMapped);
+        response.put("payouts", payoutsMapped);
+
+        return ResponseEntity.ok(response);
+    }
+
+    // Giữ lại endpoint /admin/revenue/details để tương thích ngược với các client cũ
+    @GetMapping("/admin/revenue/details")
+    public ResponseEntity<?> getRevenueDetails(@RequestHeader(value = "Authorization", required = false) String authHeader) {
+        return getRevenueFull(authHeader);
     }
 
     // 9. Public: Gửi ủng hộ (website hoặc tác giả cụ thể) và quy đổi sang điểm cho tác giả

@@ -1,7 +1,7 @@
 package com.news2026.entity;
 
 import jakarta.persistence.*;
-import java.time.LocalDateTime;
+import java.util.Date;
 
 @Entity
 @Table(name = "donation")
@@ -29,8 +29,9 @@ public class Donation {
     @Column(nullable = false)
     private String status = "PAID";
 
+    @Temporal(TemporalType.TIMESTAMP)
     @Column(name = "created_at", nullable = false)
-    private LocalDateTime createdAt = LocalDateTime.now();
+    private Date createdAt = new Date();
 
     public Donation() {}
 
@@ -41,7 +42,7 @@ public class Donation {
         this.amount = amount;
         this.message = message;
         this.status = "PAID";
-        this.createdAt = LocalDateTime.now();
+        this.createdAt = new Date();
     }
 
     // Getters and Setters
@@ -59,6 +60,6 @@ public class Donation {
     public void setMessage(String message) { this.message = message; }
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
-    public LocalDateTime getCreatedAt() { return createdAt; }
-    public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+    public Date getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Date createdAt) { this.createdAt = createdAt; }
 }
