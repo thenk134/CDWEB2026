@@ -204,7 +204,7 @@
                   </span>
                 </td>
                 <td class="p-4 text-center font-mono text-xs font-black text-amber-600">
-                  {{ user.points }}đ
+                  {{ Number(user.points).toFixed(1) }}đ
                 </td>
                 <td class="p-4 text-center">
                   <div v-if="user.role === 'USER'" class="flex justify-center">

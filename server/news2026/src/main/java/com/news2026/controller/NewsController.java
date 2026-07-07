@@ -228,7 +228,7 @@ public class NewsController {
             if (authorOpt.isPresent()) {
                 User author = authorOpt.get();
                 if (article.getViews() % 10 == 0) {
-                    author.setPoints(author.getPoints() + 1);
+                    author.setPoints(author.getPoints() + 1.0);
                     userRepository.save(author);
                 }
             }
@@ -552,11 +552,15 @@ public class NewsController {
         comment.setUpvotes(comment.getUpvotes() + 1);
         commentRepository.save(comment);
         
-        // Cộng điểm thưởng nhuận bút cho tác giả bình luận
+        // Cộng điểm thưởng nhuận bút cho tác giả bình luận theo quy tắc đồng ý (+1.0) / phản đối (-0.7)
         Optional<User> authorOpt = userRepository.findById(comment.getUserId());
         if (authorOpt.isPresent()) {
             User author = authorOpt.get();
-            author.setPoints(author.getPoints() + 1);
+            if (comment.isAgree()) {
+                author.setPoints(author.getPoints() + 1.0);
+            } else {
+                author.setPoints(author.getPoints() - 0.7);
+            }
             userRepository.save(author);
         }
         
@@ -571,7 +575,7 @@ public class NewsController {
         List<User> allUsers = userRepository.findAll();
         List<User> members = allUsers.stream()
                 .filter(u -> "MEMBER".equalsIgnoreCase(u.getRole()))
-                .sorted((u1, u2) -> Integer.compare(u2.getPoints(), u1.getPoints()))
+                .sorted((u1, u2) -> Double.compare(u2.getPoints(), u1.getPoints()))
                 .limit(5)
                 .toList();
                 

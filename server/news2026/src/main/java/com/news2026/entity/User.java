@@ -27,8 +27,8 @@ public class User {
     @Column(name = "reset_token")
     private String resetToken;
 
-    @Column(nullable = false, columnDefinition = "integer default 0")
-    private int points = 0;
+    @Column(nullable = false, columnDefinition = "double precision default 0.0")
+    private double points = 0.0;
 
     // Getters and Setters
     public Long getId() {
@@ -87,11 +87,11 @@ public class User {
         this.resetToken = resetToken;
     }
 
-    public int getPoints() {
+    public double getPoints() {
         return points;
     }
 
-    public void setPoints(int points) {
+    public void setPoints(double points) {
         this.points = points;
     }
 }

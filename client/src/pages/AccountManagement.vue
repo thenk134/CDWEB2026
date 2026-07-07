@@ -9,7 +9,7 @@
         Quyền hạn: <span :class="roleColorClass">{{ role }}</span>
       </p>
       <div v-if="role === 'MEMBER'" class="mt-2 text-sm text-gray-500 font-bold">
-        ✍️ Điểm nhuận bút: <span class="text-amber-500 text-base font-black">{{ points }}</span> điểm
+        ✍️ Điểm nhuận bút: <span class="text-amber-500 text-base font-black">{{ Number(points).toFixed(1) }}</span> điểm
       </div>
     </div>
 

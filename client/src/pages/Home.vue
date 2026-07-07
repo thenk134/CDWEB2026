@@ -40,7 +40,7 @@
                 </span>
                 <span class="font-bold text-gray-800 text-xs md:text-sm">{{ user.username }}</span>
               </div>
-              <span class="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">{{ user.points }} điểm</span>
+              <span class="text-[10px] font-black text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-100">{{ Number(user.points).toFixed(1) }} điểm</span>
             </li>
           </ul>
         </div>
