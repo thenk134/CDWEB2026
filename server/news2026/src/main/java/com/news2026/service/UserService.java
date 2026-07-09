@@ -3,6 +3,7 @@ package com.news2026.service;
 import com.news2026.entity.User;
 import com.news2026.repository.UserRepository;
 import com.news2026.util.PasswordUtil;
+import com.news2026.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -46,8 +47,8 @@ public class UserService {
             throw new Exception("Tên đăng nhập hoặc mật khẩu không chính xác!");
         }
 
-        // Tạo token phiên đăng nhập ngẫu nhiên
-        String token = UUID.randomUUID().toString();
+        // Tạo token phiên đăng nhập JWT
+        String token = JwtUtil.generateToken(user.getUsername(), user.getRole());
         user.setToken(token);
         return userRepository.save(user);
     }
@@ -56,7 +57,25 @@ public class UserService {
         if (token == null || token.trim().isEmpty()) {
             return Optional.empty();
         }
-        return userRepository.findByToken(token);
+        String username = JwtUtil.verifyTokenAndGetUsername(token);
+        if (username == null) {
+            return Optional.empty();
+        }
+        Optional<User> userOpt = userRepository.findByUsername(username);
+        if (userOpt.isPresent()) {
+            User user = userOpt.get();
+            if (token.equals(user.getToken())) {
+                // Tự động hạ cấp nếu hết hạn hội viên VIP
+                if ("MEMBER".equalsIgnoreCase(user.getRole()) && user.getVipExpireDate() != null) {
+                    if (user.getVipExpireDate().isBefore(java.time.LocalDate.now())) {
+                        user.setRole("USER");
+                        userRepository.save(user);
+                    }
+                }
+                return Optional.of(user);
+            }
+        }
+        return Optional.empty();
     }
 
     public void logoutUser(String token) {
@@ -84,5 +103,14 @@ public class UserService {
         user.setPassword(PasswordUtil.hashPassword(newPassword));
         user.setResetToken(null);
         userRepository.save(user);
+    }
+
+    public User save(User user) {
+        return userRepository.save(user);
+    }
+
+    public User upgradeToMember(User user) {
+        user.setRole("MEMBER");
+        return userRepository.save(user);
     }
 }

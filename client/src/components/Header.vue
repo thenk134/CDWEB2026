@@ -45,8 +45,8 @@
               @focus="showSuggestions = true"
               @blur="onBlur"
             />
-            <button type="submit" class="text-gray-400 hover:text-red-700">
-              🔎
+            <button type="submit" class="text-gray-400 hover:text-red-700 flex items-center justify-center cursor-pointer">
+              <Search class="w-4 h-4" />
             </button>
           </form>
 
@@ -100,9 +100,10 @@
             </span>
             <router-link
                 to="/account-management"
-                class="bg-amber-500 text-white px-3 py-1.5 rounded-full hover:bg-amber-600 transition text-xs shadow-sm font-bold"
+                class="bg-amber-500 text-white px-3 py-1.5 rounded-full hover:bg-amber-600 transition text-xs shadow-sm font-bold flex items-center gap-1"
             >
-              ⚙️ Quản lý tài khoản
+              <Settings class="w-3.5 h-3.5 text-white" />
+              <span>Quản lý tài khoản</span>
             </router-link>
             <button 
               @click="handleLogout" 
@@ -140,7 +141,12 @@
           <li><router-link to="/category/bao-hiem" class="hover:text-yellow-400 transition">Bảo hiểm</router-link></li>
           <li><router-link to="/category/cong-doan" class="hover:text-yellow-400 transition">Công đoàn</router-link></li>
           <li><router-link to="/category/suc-khoe" class="hover:text-yellow-400 transition">Sức khỏe</router-link></li>
-          <li><router-link to="/bookmarks" class="hover:text-yellow-400 transition">📌 TIN ĐÃ LƯU</router-link></li>
+          <li>
+            <router-link to="/bookmarks" class="hover:text-yellow-400 transition flex items-center gap-1">
+              <Bookmark class="w-4 h-4 text-white fill-white" />
+              <span>TIN ĐÃ LƯU</span>
+            </router-link>
+          </li>
           <li><router-link to="/category/quandiem-tranhluan" class="hover:text-yellow-400 transition">Quan điểm - Tranh luận</router-link></li>
         </ul>
       </div>
@@ -151,6 +157,7 @@
 <script setup>
 import { ref, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import { Search, Settings, Bookmark } from 'lucide-vue-next'
 
 const keyword = ref("")
 const weather = ref(null)
@@ -188,11 +195,12 @@ const onSearchInput = () => {
 
   loadingSuggestions.value = true
   debounceTimeout = setTimeout(() => {
-    fetch(`http://localhost:5000/api/news/search?query=${encodeURIComponent(keyword.value.trim())}`)
+    fetch(`http://localhost:5000/api/news/search?query=${encodeURIComponent(keyword.value.trim())}&size=5`)
       .then(res => res.json())
       .then(data => {
-        // Lấy tối đa 5 bài báo làm gợi ý
-        suggestions.value = Array.isArray(data) ? data.slice(0, 5) : []
+        // Backend trả về { content: [...], totalPages, ... } sau khi nâng cấp phân trang
+        const list = Array.isArray(data.content) ? data.content : (Array.isArray(data) ? data : [])
+        suggestions.value = list.slice(0, 5)
       })
       .catch(err => {
         console.error("Lỗi gợi ý tìm kiếm:", err)

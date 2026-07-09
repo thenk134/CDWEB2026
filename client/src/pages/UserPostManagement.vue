@@ -6,16 +6,17 @@
         <p class="text-gray-500 text-sm">Quản lý và phê duyệt các bài viết từ cộng đồng độc giả gửi về</p>
       </div>
       <router-link
-          to="/admin" \r
+          to="/admin" 
           class="bg-gray-600 hover:bg-gray-700 text-white font-bold px-5 py-2.5 rounded-lg shadow transition flex items-center gap-2"
       >
-        ⬅️ Quay lại Dashboard
+        <ArrowLeft class="w-4 h-4 text-white" />
+        <span>Quay lại Dashboard</span>
       </router-link>
     </div>
 
     <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
       <div class="w-full md:w-96 relative">
-        <span class="absolute left-3 top-2.5 text-gray-400">🔍</span>
+        <Search class="w-4 h-4 text-gray-400 absolute left-3 top-3" />
         <input
             type="text"
             v-model="searchTerm"
@@ -71,6 +72,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
+import { ArrowLeft, Search } from 'lucide-vue-next'
 
 const posts = ref([])
 const loading = ref(true)

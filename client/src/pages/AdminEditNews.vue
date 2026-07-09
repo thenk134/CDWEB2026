@@ -1,8 +1,9 @@
 <template>
   <main class="container mx-auto px-4 py-8 max-w-4xl min-h-screen">
     <div class="mb-6">
-      <router-link to="/admin" class="text-red-700 hover:underline flex items-center gap-1 text-sm font-bold">
-        ⬅️ Quay lại danh sách quản lý
+      <router-link to="/admin" class="text-red-700 hover:underline flex items-center gap-1.5 text-sm font-bold">
+        <ArrowLeft class="w-4 h-4 text-red-700" />
+        <span>Quay lại danh sách quản lý</span>
       </router-link>
     </div>
 
@@ -53,6 +54,20 @@
               class="w-full px-4 py-2.5 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-red-700/20 focus:border-red-700 transition"
             />
           </div>
+        </div>
+
+        <!-- Tùy chọn độc quyền cho hội viên -->
+        <div class="flex items-center space-x-3 p-4 bg-amber-50/50 border border-amber-200 rounded-lg">
+          <input 
+            type="checkbox" 
+            id="exclusive" 
+            v-model="article.exclusive" 
+            class="w-4 h-4 text-amber-600 border-gray-300 rounded focus:ring-amber-500 cursor-pointer"
+          />
+          <label for="exclusive" class="text-sm font-bold text-gray-800 cursor-pointer select-none flex items-center gap-1.5">
+             <Star class="w-4 h-4 text-amber-500 fill-amber-500" />
+             <span>Tin Độc Quyền (Chỉ dành cho Hội Viên)</span>
+          </label>
         </div>
 
         <!-- Ảnh Demo xem trước -->
@@ -114,6 +129,7 @@
 import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { toast } from '../utils/toast'
+import { ArrowLeft, Star } from 'lucide-vue-next'
 
 const route = useRoute()
 const router = useRouter()
@@ -126,7 +142,8 @@ const article = ref({
   description: "",
   content: "",
   image: "",
-  category: "thoi-su"
+  category: "thoi-su",
+  exclusive: false
 })
 
 const loading = ref(false)
@@ -153,7 +170,8 @@ const fetchArticleDetails = () => {
         description: data.description,
         content: data.content,
         image: data.image,
-        category: data.category
+        category: data.category,
+        exclusive: data.exclusive || data.isExclusive || false
       }
     })
     .catch(err => {

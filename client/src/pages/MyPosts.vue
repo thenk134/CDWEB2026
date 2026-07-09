@@ -9,13 +9,14 @@
           to="/my-post/create"
           class="bg-red-700 hover:bg-red-800 text-white font-bold px-5 py-2.5 rounded-lg shadow transition flex items-center gap-2"
       >
-        ➕ Đăng bài viết mới
+        <Plus class="w-4 h-4 text-white" />
+        <span>Đăng bài viết mới</span>
       </router-link>
     </div>
 
     <div class="bg-white p-4 rounded-xl border border-gray-200 shadow-sm mb-6 flex flex-col md:flex-row gap-4 items-center justify-between">
       <div class="w-full md:w-96 relative">
-        <span class="absolute left-3 top-2.5 text-gray-400">🔍</span>
+        <Search class="w-4 h-4 text-gray-400 absolute left-3 top-3" />
         <input
             type="text"
             v-model="searchTerm"
@@ -66,25 +67,28 @@
             <div class="flex items-center justify-center gap-1.5">
               <button
                   @click="viewPostDetail(post)"
-                  class="bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition font-bold text-xs"
+                  class="bg-blue-600 text-white px-3 py-1.5 rounded hover:bg-blue-700 transition font-bold text-xs flex items-center gap-1 cursor-pointer"
               >
-                👁️ Xem
+                <Eye class="w-3.5 h-3.5" />
+                <span>Xem</span>
               </button>
 
               <button
                   @click="handleEdit(post)"
-                  class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded font-bold text-xs transition"
+                  class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-1.5 rounded font-bold text-xs transition flex items-center gap-1 cursor-pointer"
                   title="Chỉnh sửa nội dung"
               >
-                ✏️ Sửa
+                <Edit3 class="w-3.5 h-3.5" />
+                <span>Sửa</span>
               </button>
 
               <button
                   @click="handleDelete(post.id)"
-                  class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded font-bold text-xs transition"
+                  class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded font-bold text-xs transition flex items-center gap-1 cursor-pointer"
                   title="Xóa bài viết vĩnh viễn"
               >
-                🗑️ Xóa
+                <Trash2 class="w-3.5 h-3.5" />
+                <span>Xóa</span>
               </button>
             </div>
           </td>
@@ -103,6 +107,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
+import { Plus, Search, Eye, Edit3, Trash2 } from 'lucide-vue-next'
 
 const router = useRouter()
 const posts = ref([])
