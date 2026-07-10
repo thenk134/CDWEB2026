@@ -90,6 +90,14 @@ public class AdminUserController {
         }
 
         user.setRole(newRole.toUpperCase());
+        if ("MEMBER".equalsIgnoreCase(newRole)) {
+            java.time.LocalDate now = java.time.LocalDate.now();
+            if (user.getVipExpireDate() == null || user.getVipExpireDate().isBefore(now)) {
+                user.setVipExpireDate(now.plusDays(30));
+            }
+        } else if ("USER".equalsIgnoreCase(newRole)) {
+            user.setVipExpireDate(null);
+        }
         userRepository.save(user);
 
         return ResponseEntity.ok(Map.of(

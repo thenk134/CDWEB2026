@@ -1008,7 +1008,7 @@ const handleRejectPayout = async (id) => {
     if (!res.ok) throw new Error("Từ chối thất bại.")
     toast.success("Đã từ chối yêu cầu và hoàn lại điểm!")
     fetchAllPayoutRequests()
-    fetchRevenueStats()
+    fetchRevenueAll()
   } catch (err) {
     toast.error(err.message)
   }
@@ -1027,7 +1027,13 @@ const updateUserRole = (id, newRole) => {
     },
     body: JSON.stringify({ role: newRole })
   })
-    .then(res => res.json())
+    .then(async res => {
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.message || "Không thể cập nhật quyền hạn thành viên!")
+      }
+      return data
+    })
     .then(data => {
       toast.success(data.message)
       fetchUsers()
@@ -1043,7 +1049,13 @@ const deleteArticle = (id) => {
     method: "DELETE",
     headers: { "Authorization": `Bearer ${token}` }
   })
-    .then(res => res.json())
+    .then(async res => {
+      const data = await res.json()
+      if (!res.ok) {
+        throw new Error(data.message || "Xóa bài viết thất bại!")
+      }
+      return data
+    })
     .then(data => {
       toast.success(data.message)
       fetchArticles()

@@ -383,7 +383,7 @@ public class NewsController {
         Article article = new Article();
         article.setTitle(articleData.getTitle());
         article.setDescription(articleData.getDescription());
-        article.setContent(articleData.getDescription()); // Đồng bộ nội dung bài viết
+        article.setContent(articleData.getContent()); // Đồng bộ nội dung bài viết
         article.setImage(articleData.getImage() != null && !articleData.getImage().isEmpty() ?
                 articleData.getImage() : "https://via.placeholder.com/400x250");
 
